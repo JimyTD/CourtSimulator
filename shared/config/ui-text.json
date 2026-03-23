@@ -1,51 +1,73 @@
 {
   "app": {
-    "name": "上朝模拟器",
+    "title": "上朝模拟器",
     "subtitle": "天下大事，共议于此"
   },
-  "ui": {
-    "inputPlaceholder": "皇上有何旨意？",
+
+  "round": {
+    "label": "第{n}轮",
+    "of": "共{total}轮"
+  },
+
+  "emperor": {
     "inputLabel": "今日议题",
-    "startDebate": "宣百官觐见",
-    "thinking": "正在思考...",
-    "silent": "臣无奏",
-    "round": "第{n}轮奏对",
-    "chancellorTitle": "内阁首辅总结",
-    "decree": "御批",
-    "decreePlaceholder": "朕意已决...",
-    "settings": "朝堂设置",
-    "settingsLength": "发言篇幅",
-    "settingsLengthShort": "简短",
-    "settingsLengthMedium": "适中",
-    "settingsLengthLong": "详尽",
-    "settingsRounds": "辩论轮次",
-    "settingsRound1": "一轮",
-    "settingsRound2": "两轮",
-    "settingsRound3": "三轮",
-    "settingsStyle": "文言程度",
-    "settingsStyleModern": "偏现代",
-    "settingsStyleClassical": "偏文言",
-    "settingsSpeed": "显示速度",
-    "settingsSpeedFast": "快",
-    "settingsSpeedSlow": "慢",
-    "settingsOfficials": "参与官员",
-    "settingsAI": "AI 设置",
-    "settingsProvider": "模型提供商",
-    "settingsApiKey": "API Key",
-    "settingsBaseUrl": "Base URL（选填）",
-    "settingsModel": "模型名称",
-    "rankPrefix": "正",
-    "rankSuffix": "品",
-    "rankMap": {
-      "1": "从一品",
-      "2": "正二品",
-      "3": "正三品",
-      "4": "正四品",
-      "5": "正五品",
-      "6": "正六品",
-      "7": "正七品",
-      "8": "正八品",
-      "9": "从九品"
+    "inputPlaceholder": "皇上有何旨意？请拟定议题……",
+    "submitBtn": "宣百官觐见",
+    "decreeLabel": "朕之御批",
+    "decreePlaceholder": "朕意已决……",
+    "decreeSubmit": "颁布御旨"
+  },
+
+  "chancellor": {
+    "title": "内阁首辅总结陈词",
+    "loading": "首辅正在拟稿……"
+  },
+
+  "status": {
+    "waiting": "恭候中……",
+    "thinking": "正在思考……",
+    "silent": "臣无奏"
+  },
+
+  "settings": {
+    "title": "朝堂设置",
+    "close": "关闭",
+    "length": {
+      "label": "发言篇幅",
+      "short": "简短",
+      "medium": "适中",
+      "long": "详尽"
+    },
+    "rounds": {
+      "label": "辩论轮次",
+      "round1": "一轮",
+      "round2": "两轮",
+      "round3": "三轮"
+    },
+    "style": {
+      "label": "文言程度",
+      "modern": "偏现代",
+      "classical": "偏文言"
+    },
+    "officials": {
+      "label": "参与官员"
+    },
+    "typingSpeed": {
+      "label": "显示速度",
+      "fast": "快",
+      "slow": "慢"
+    },
+    "aiConfig": {
+      "label": "AI 设置",
+      "collapse": "收起 ▲",
+      "expand": "展开 ▼",
+      "provider": "模型提供商",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "sk-...",
+      "baseUrl": "Base URL（选填）",
+      "baseUrlPlaceholder": "https://api.example.com/v1/",
+      "modelName": "模型名称",
+      "modelNamePlaceholder": "deepseek-chat"
     }
   }
 }
