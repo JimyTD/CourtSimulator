@@ -1,0 +1,184 @@
+# 🏯 CourtSimulator 服务器更新指南
+
+## ⚠️ 重要提示
+**本项目使用腾讯云 Lighthouse API 进行服务器管理，不使用传统 SSH！**
+
+---
+
+## 🖥️ 服务器信息
+
+| 项目 | 值 |
+|------|------|
+| **服务器IP** | 62.234.18.113 |
+| **实例ID** | lhins-5xyrg0ei |
+| **地域** | ap-beijing |
+| **系统** | OpenCloudOS (Linux) |
+| **部署目录** | /root/CourtSimulator |
+| **部署方式** | Docker Compose |
+| **对外端口** | 9000 |
+| **访问地址** | http://62.234.18.113:9000 |
+
+---
+
+## 🔄 标准更新流程
+
+### 步骤 1：本地修改 → commit → push
+
+```bash
+git add <变更文件>
+git commit -m "描述"
+git push origin main
+```
+
+> AI 不主动执行 commit/push，需用户明确授权（rule 03）
+
+---
+
+### 步骤 2：服务器拉取代码
+
+**工具**：`execute_command`
+
+```javascript
+{
+  "Region": "ap-beijing",
+  "InstanceId": "lhins-5xyrg0ei",
+  "Command": "cd /root/CourtSimulator && git pull origin main"
+}
+```
+
+---
+
+### 步骤 3：重建容器
+
+#### 🟢 日常代码更新（只改了 src/、shared/config/ 等，未改 package.json）
+**不加 `--no-cache`，利用 Docker 层缓存，约 30 秒：**
+
+```javascript
+{
+  "Region": "ap-beijing",
+  "InstanceId": "lhins-5xyrg0ei",
+  "Command": "cd /root/CourtSimulator && docker compose build frontend-builder && docker compose up -d"
+}
+```
+
+#### 🟡 修改了 package.json 或 requirements.txt
+**需要重建对应服务，约 3 分钟：**
+
+```javascript
+// 前端依赖变更
+{
+  "Command": "cd /root/CourtSimulator && docker compose build frontend-builder --no-cache && docker compose up -d"
+}
+
+// 后端依赖变更
+{
+  "Command": "cd /root/CourtSimulator && docker compose build backend --no-cache && docker compose up -d"
+}
+```
+
+#### 🔴 修改了 Dockerfile 本身，或怀疑缓存有问题
+**全量重建，约 5-8 分钟：**
+
+```javascript
+{
+  "Command": "cd /root/CourtSimulator && docker compose down && docker compose build --no-cache && docker compose up -d"
+}
+```
+
+---
+
+### 步骤 4：验证服务
+
+```javascript
+{
+  "Region": "ap-beijing",
+  "InstanceId": "lhins-5xyrg0ei",
+  "Command": "sleep 8 && curl -s http://localhost:9000/health"
+}
+```
+
+返回 `{"status":"ok","service":"court-simulator-backend"}` 即部署成功。
+
+---
+
+## 📋 构建策略速查
+
+| 变更内容 | 构建命令 | 预计耗时 |
+|---------|---------|---------|
+| 只改了前端代码（tsx/css/json） | `docker compose build frontend-builder` | ~30 秒 |
+| 只改了后端代码（py） | `docker compose build backend` | ~20 秒 |
+| 改了 `frontend/package.json` | `docker compose build frontend-builder --no-cache` | ~3 分钟 |
+| 改了 `backend/requirements.txt` | `docker compose build backend --no-cache` | ~2 分钟 |
+| 改了 `nginx/court.conf` | `docker compose restart nginx` | ~5 秒 |
+| 改了 Dockerfile 本身 | `docker compose build <service> --no-cache` | ~3-5 分钟 |
+| 全量重建（排查问题用） | `docker compose down && docker compose build --no-cache && docker compose up -d` | ~8 分钟 |
+
+> **原则：默认不加 `--no-cache`。只有改了 `package.json`/`requirements.txt`/`Dockerfile` 本身，或明确怀疑缓存有问题时，才加 `--no-cache`。**
+
+---
+
+## 🔧 常用运维命令
+
+```javascript
+// 查看所有容器状态
+{ "Command": "cd /root/CourtSimulator && docker compose ps" }
+
+// 查看后端日志（最近 50 行）
+{ "Command": "cd /root/CourtSimulator && docker compose logs --tail=50 backend" }
+
+// 查看前端构建日志
+{ "Command": "cd /root/CourtSimulator && docker compose logs frontend-builder" }
+
+// 查看 nginx 日志
+{ "Command": "cd /root/CourtSimulator && docker compose logs --tail=30 nginx" }
+
+// 重启单个服务（不重建镜像）
+{ "Command": "cd /root/CourtSimulator && docker compose restart backend" }
+{ "Command": "cd /root/CourtSimulator && docker compose restart nginx" }
+
+// 查看端口占用
+{ "Command": "ss -tlnp | grep LISTEN" }
+
+// 查看磁盘使用
+{ "Command": "df -h && docker system df" }
+
+// 清理无用镜像（定期执行）
+{ "Command": "docker image prune -f" }
+```
+
+---
+
+## ⚠️ 注意事项
+
+1. **`.env` 不提交 Git**，服务器上需手动维护 `/root/CourtSimulator/backend/.env`
+2. **9000 端口**已在 Lighthouse 防火墙开放（TCP 入站 0.0.0.0/0）
+3. **WebSocket** 走 `/ws/` 路径，Nginx 已配置 `Upgrade` 头，超时 3600s
+4. **前端构建产物**通过 Docker volume `frontend-dist` 共享给 nginx，不需要手动复制
+
+---
+
+## 🐞 常见问题
+
+### Q1：更新代码后页面没变
+服务器可能跑的还是旧镜像。执行 `git log --oneline -3` 确认代码版本，再重建容器。
+
+### Q2：前端报 `Cannot read properties of undefined`
+通常是 `shared/config/ui-text.json` 里缺少组件需要的 key。检查报错的 key 路径，在 `ui-text.json` 里补全对应字段。
+
+### Q3：后端返回 500 / LLM 调用失败
+检查 `.env` 里的 API Key 是否有效：
+```javascript
+{ "Command": "cat /root/CourtSimulator/backend/.env" }
+```
+
+### Q4：WebSocket 连接失败
+检查 nginx 日志，确认 `/ws/` 路径代理是否正常：
+```javascript
+{ "Command": "cd /root/CourtSimulator && docker compose logs --tail=30 nginx" }
+```
+
+### Q5：容器起不来
+查看具体服务日志定位原因：
+```javascript
+{ "Command": "cd /root/CourtSimulator && docker compose logs backend" }
+```
