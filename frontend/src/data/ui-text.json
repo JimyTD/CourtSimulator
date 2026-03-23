@@ -1,0 +1,73 @@
+{
+  "app": {
+    "title": "上朝模拟器",
+    "subtitle": "天下大事，共议于此"
+  },
+
+  "round": {
+    "label": "第{n}轮",
+    "of": "共{total}轮"
+  },
+
+  "emperor": {
+    "inputLabel": "今日议题",
+    "inputPlaceholder": "皇上有何旨意？请拟定议题……",
+    "submitBtn": "宣百官觐见",
+    "decreeLabel": "朕之御批",
+    "decreePlaceholder": "朕意已决……",
+    "decreeSubmit": "颁布御旨"
+  },
+
+  "chancellor": {
+    "title": "内阁首辅总结陈词",
+    "loading": "首辅正在拟稿……"
+  },
+
+  "status": {
+    "waiting": "恭候中……",
+    "thinking": "正在思考……",
+    "silent": "臣无奏"
+  },
+
+  "settings": {
+    "title": "朝堂设置",
+    "close": "关闭",
+    "length": {
+      "label": "发言篇幅",
+      "short": "简短",
+      "medium": "适中",
+      "long": "详尽"
+    },
+    "rounds": {
+      "label": "辩论轮次",
+      "round1": "一轮",
+      "round2": "两轮",
+      "round3": "三轮"
+    },
+    "style": {
+      "label": "文言程度",
+      "modern": "偏现代",
+      "classical": "偏文言"
+    },
+    "officials": {
+      "label": "参与官员"
+    },
+    "typingSpeed": {
+      "label": "显示速度",
+      "fast": "快",
+      "slow": "慢"
+    },
+    "aiConfig": {
+      "label": "AI 设置",
+      "collapse": "收起 ▲",
+      "expand": "展开 ▼",
+      "provider": "模型提供商",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "sk-...",
+      "baseUrl": "Base URL（选填）",
+      "baseUrlPlaceholder": "https://api.example.com/v1/",
+      "modelName": "模型名称",
+      "modelNamePlaceholder": "deepseek-chat"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { OfficialState } from '../types';
-import uiText from '../../../shared/config/ui-text.json';
+import uiText from '../data/ui-text.json';
 
 interface Props {
   officialState: OfficialState;

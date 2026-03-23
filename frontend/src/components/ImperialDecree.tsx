@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import uiText from '../../../shared/config/ui-text.json';
+import uiText from '../data/ui-text.json';
 
 interface Props {
   onDecree: (decree: string) => void;

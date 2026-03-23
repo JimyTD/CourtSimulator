@@ -7,7 +7,7 @@ import { SettingsPanel } from './SettingsPanel';
 import { useDebate } from '../hooks/useDebate';
 import { useSettings } from '../hooks/useSettings';
 import { useDebateStore } from '../store/debateStore';
-import uiText from '../../../shared/config/ui-text.json';
+import uiText from '../data/ui-text.json';
 
 export function CourtRoom() {
   const { startDebate } = useDebate();

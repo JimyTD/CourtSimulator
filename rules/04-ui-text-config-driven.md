@@ -90,22 +90,36 @@ function MyComponent() {
 ### 主配置文件（单一数据源）
 
 ```
-项目根目录/terminology.json
+shared/config/ui-text.json        ← 主配置，所有修改先改这里
+shared/config/officials.json      ← 官员角色配置
 ```
 
-### 各端同步副本
+### 前端本地副本（Docker 构建必须）
 
 ```
-web-frontend/public/terminology.json       ← Web 前端使用
-web-frontend/dist/terminology.json         ← 构建产物
+frontend/src/data/ui-text.json    ← 从 shared/config/ 复制
+frontend/src/data/officials.json  ← 从 shared/config/ 复制
 ```
+
+> ⚠️ **关键约束**：Docker 构建上下文只含 `frontend/`，跨目录引用 `../../../shared/` 在构建时路径会失效。
+> 所有前端组件必须从 `../data/xxx.json` 引用，**严禁**从 `../../../shared/config/` 引用。
 
 **同步方式**：
 ```bash
-# 修改主配置后，手动复制到各端
-cp terminology.json web-frontend/public/
+# 修改主配置后，手动复制到前端
+copy shared\config\ui-text.json frontend\src\data\ui-text.json
+copy shared\config\officials.json frontend\src\data\officials.json
+```
 
-# Capacitor 自动同步（npx cap sync android）
+### 前端组件中的正确引用
+
+```typescript
+// ✅ 正确：从 frontend/src/data/ 引用
+import uiText from '../data/ui-text.json';
+import officials from '../data/officials.json';
+
+// ❌ 错误：跨出 frontend 目录（Docker 构建会失败）
+import uiText from '../../../shared/config/ui-text.json';
 ```
 
 ---
@@ -285,6 +299,6 @@ T.format('message.success.taskCompleted', { points: 10 });
 
 ---
 
-**最后更新**：2026-03-20  
+**最后更新**：2026-03-23  
 **优先级**：🟡 中高（影响可维护性和国际化）  
 **适用范围**：需要国际化或多语言的项目；需要统一维护 UI 文案的项目

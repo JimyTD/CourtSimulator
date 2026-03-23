@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Settings } from '../types';
-import uiText from '../../../shared/config/ui-text.json';
-import officialsConfig from '../../../shared/config/officials.json';
+import uiText from '../data/ui-text.json';
+import officialsConfig from '../data/officials.json';
 
 interface Props {
   settings: Settings;

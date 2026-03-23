@@ -2,6 +2,7 @@
 
 ## ⚠️ 重要提示
 **本项目使用腾讯云 Lighthouse API 进行服务器管理，不使用传统 SSH！**
+**服务器上没有 Git 环境，代码通过 Lighthouse API 上传覆盖部署，不走 git pull！**
 
 ---
 
@@ -22,42 +23,61 @@
 
 ## 🔄 标准更新流程
 
-### 步骤 1：本地修改 → commit → push
+### 步骤 1：上传项目文件到服务器
 
-```bash
-git add <变更文件>
-git commit -m "描述"
-git push origin main
+**工具**：`deploy_project_preparation`（Lighthouse API）
+
+```javascript
+{
+  "FolderPath": "i:\\AIGameTest\\CourtSimulator",
+  "InstanceId": "lhins-5xyrg0ei",
+  "Region": "ap-beijing",
+  "ProjectName": "CourtSimulator"
+}
 ```
 
-> AI 不主动执行 commit/push，需用户明确授权（rule 03）
+> 上传后文件位于 `/root/CourtSimulator_YYYYMMDDHHMMSS`（带时间戳的临时目录）
 
 ---
 
-### 步骤 2：服务器拉取代码
+### 步骤 2：迁移 .env + 切换目录
 
-**工具**：`execute_command`
+**关键**：`.env` 不在 Git 仓库中，上传的新目录里没有，必须从旧目录复制！
 
 ```javascript
 {
   "Region": "ap-beijing",
   "InstanceId": "lhins-5xyrg0ei",
-  "Command": "cd /root/CourtSimulator && git pull origin main"
+  "Command": "cp /root/CourtSimulator/backend/.env /root/CourtSimulator_<时间戳>/backend/.env && cd /root/CourtSimulator && docker compose down && rm -rf /root/CourtSimulator_bak && mv /root/CourtSimulator /root/CourtSimulator_bak && mv /root/CourtSimulator_<时间戳> /root/CourtSimulator"
 }
 ```
 
+> ⚠️ 将 `<时间戳>` 替换为步骤 1 返回的实际目录名
+
 ---
 
-### 步骤 3：重建容器
+### 步骤 3：修复换行符 + 重建容器
+
+Windows 上传的文件带 CRLF 换行符，Linux 上需要先修复：
+
+```javascript
+{
+  "Command": "cd /root/CourtSimulator && find . -type f \\( -name '*.py' -o -name '*.ts' -o -name '*.tsx' -o -name '*.json' -o -name '*.html' -o -name '*.css' -o -name '*.yml' -o -name '*.yaml' -o -name '*.conf' -o -name '*.sh' -o -name '*.txt' -o -name 'Dockerfile*' \\) -exec sed -i 's/\\r$//' {} +"
+}
+```
+
+然后按需重建容器（参考下方构建策略速查表）。
+
+---
+
+### 步骤 4：重建容器
 
 #### 🟢 日常代码更新（只改了 src/、shared/config/ 等，未改 package.json）
 **不加 `--no-cache`，利用 Docker 层缓存，约 30 秒：**
 
 ```javascript
 {
-  "Region": "ap-beijing",
-  "InstanceId": "lhins-5xyrg0ei",
-  "Command": "cd /root/CourtSimulator && docker compose build frontend-builder && docker compose up -d"
+  "Command": "cd /root/CourtSimulator && docker compose build frontend-builder && docker compose build backend && docker compose up -d"
 }
 ```
 
@@ -66,34 +86,37 @@ git push origin main
 
 ```javascript
 // 前端依赖变更
-{
-  "Command": "cd /root/CourtSimulator && docker compose build frontend-builder --no-cache && docker compose up -d"
-}
+{ "Command": "cd /root/CourtSimulator && docker compose build frontend-builder --no-cache && docker compose up -d" }
 
 // 后端依赖变更
-{
-  "Command": "cd /root/CourtSimulator && docker compose build backend --no-cache && docker compose up -d"
-}
+{ "Command": "cd /root/CourtSimulator && docker compose build backend --no-cache && docker compose up -d" }
 ```
 
 #### 🔴 修改了 Dockerfile 本身，或怀疑缓存有问题
 **全量重建，约 5-8 分钟：**
 
 ```javascript
-{
-  "Command": "cd /root/CourtSimulator && docker compose down && docker compose build --no-cache && docker compose up -d"
-}
+{ "Command": "cd /root/CourtSimulator && docker compose down && docker compose build --no-cache && docker compose up -d" }
 ```
+
+#### 🔴🔴 前端更新后页面仍显示旧内容（Docker volume 缓存）
+**必须加 `-v` 删除旧 volume：**
+
+```javascript
+{ "Command": "cd /root/CourtSimulator && docker compose down -v && docker compose up -d" }
+```
+
+> ⚠️ `docker compose down -v` 会删除所有 named volume（包括 `frontend-dist`）。这是必要的——named volume 一旦创建有数据，即使镜像更新也不会被覆盖。
 
 ---
 
-### 步骤 4：验证服务
+### 步骤 5：验证服务
 
 ```javascript
 {
   "Region": "ap-beijing",
   "InstanceId": "lhins-5xyrg0ei",
-  "Command": "sleep 8 && curl -s http://localhost:9000/health"
+  "Command": "sleep 8 && docker compose -f /root/CourtSimulator/docker-compose.yml ps && curl -s http://localhost:9000/health"
 }
 ```
 
@@ -112,6 +135,7 @@ git push origin main
 | 改了 `nginx/court.conf` | `docker compose restart nginx` | ~5 秒 |
 | 改了 Dockerfile 本身 | `docker compose build <service> --no-cache` | ~3-5 分钟 |
 | 全量重建（排查问题用） | `docker compose down && docker compose build --no-cache && docker compose up -d` | ~8 分钟 |
+| 前端更新后页面没变 | `docker compose down -v && docker compose up -d` | ~2 分钟 |
 
 > **原则：默认不加 `--no-cache`。只有改了 `package.json`/`requirements.txt`/`Dockerfile` 本身，或明确怀疑缓存有问题时，才加 `--no-cache`。**
 
@@ -144,32 +168,49 @@ git push origin main
 
 // 清理无用镜像（定期执行）
 { "Command": "docker image prune -f" }
+
+// 查看 .env 配置
+{ "Command": "cat /root/CourtSimulator/backend/.env" }
 ```
 
 ---
 
 ## ⚠️ 注意事项
 
-1. **`.env` 不提交 Git**，服务器上需手动维护 `/root/CourtSimulator/backend/.env`
-2. **9000 端口**已在 Lighthouse 防火墙开放（TCP 入站 0.0.0.0/0）
-3. **WebSocket** 走 `/ws/` 路径，Nginx 已配置 `Upgrade` 头，超时 3600s
-4. **前端构建产物**通过 Docker volume `frontend-dist` 共享给 nginx，不需要手动复制
+1. **`.env` 不在 Git 仓库中**，每次上传覆盖部署后必须从旧目录 `cp` 过来，否则 API Key 丢失
+2. **Windows → Linux 换行符**：上传后必须执行 `sed -i 's/\r$//'` 修复 CRLF，否则 Dockerfile、shell 脚本会执行失败
+3. **Docker named volume `frontend-dist`**：不会随镜像重建自动更新！前端产物变更后如果页面没变，用 `docker compose down -v` 清除旧 volume
+4. **9000 端口**已在 Lighthouse 防火墙开放（TCP 入站 0.0.0.0/0）
+5. **WebSocket** 走 `/ws/` 路径，Nginx 已配置 `Upgrade` 头，超时 3600s
+6. **前端构建产物**通过 Docker volume `frontend-dist` 共享给 nginx，不需要手动复制
+7. **共享配置文件**（如 `ui-text.json`）必须在 `frontend/src/data/` 下维护副本，跨目录引用（`../../../shared/`）在 Docker 构建中路径会失效
 
 ---
 
 ## 🐞 常见问题
 
 ### Q1：更新代码后页面没变
-服务器可能跑的还是旧镜像。执行 `git log --oneline -3` 确认代码版本，再重建容器。
+**首先检查 Docker volume 缓存**（最常见原因）：
+```javascript
+// 查看 nginx 容器里的实际 JS 文件名
+{ "Command": "docker exec court-nginx ls /usr/share/nginx/html/assets/" }
+```
+如果文件名和本地 `dist/assets/` 里的不一致，说明是 volume 缓存了旧产物：
+```javascript
+{ "Command": "cd /root/CourtSimulator && docker compose down -v && docker compose up -d" }
+```
 
 ### Q2：前端报 `Cannot read properties of undefined`
-通常是 `shared/config/ui-text.json` 里缺少组件需要的 key。检查报错的 key 路径，在 `ui-text.json` 里补全对应字段。
+两种可能原因：
+1. **`ui-text.json` 缺少字段**：检查报错的 key 路径，在 `shared/config/ui-text.json` 和 `frontend/src/data/ui-text.json` 里补全
+2. **Docker volume 缓存旧产物**：参考 Q1 清除 volume
 
 ### Q3：后端返回 500 / LLM 调用失败
-检查 `.env` 里的 API Key 是否有效：
+检查 `.env` 里的 API Key 是否存在且有效：
 ```javascript
 { "Command": "cat /root/CourtSimulator/backend/.env" }
 ```
+> 特别注意：上传覆盖部署后 `.env` 可能丢失（被新目录覆盖），需要重新写入
 
 ### Q4：WebSocket 连接失败
 检查 nginx 日志，确认 `/ws/` 路径代理是否正常：
@@ -181,4 +222,10 @@ git push origin main
 查看具体服务日志定位原因：
 ```javascript
 { "Command": "cd /root/CourtSimulator && docker compose logs backend" }
+```
+
+### Q6：deploy_project_preparation 上传后 .env 丢失
+上传覆盖方式会用全新目录替换旧目录，`.env` 不在 Git 中所以不会被上传。**必须在切换目录前先 cp**：
+```javascript
+{ "Command": "cp /root/CourtSimulator/backend/.env /root/CourtSimulator_<新目录>/backend/.env" }
 ```

@@ -99,15 +99,22 @@ X:\CourtSimulator\shared\config\    ← 共享配置（官员数据等）
 | 改了 `package.json` / `requirements.txt` | `docker compose build <service> --no-cache` | ~3 分钟 |
 | 改了 Dockerfile 本身 | `docker compose build <service> --no-cache` | ~3-5 分钟 |
 | 排查问题/全量重建 | `docker compose down && docker compose build --no-cache && docker compose up -d` | ~8 分钟 |
+| 前端更新后页面没变 | `docker compose down -v && docker compose up -d`（清除 volume 缓存） | ~2 分钟 |
 
 **为什么重要**：`Dockerfile.build` 把 `COPY package.json` 放在 `COPY . .` 前面，就是为了利用层缓存。加 `--no-cache` 会跳过缓存，每次都重跑 `npm install`（2-3 分钟），远超 Lighthouse API 超时限制。
 
 ```bash
-# ✅ 日常代码更新（不加 --no-cache）
-cd /root/CourtSimulator && git pull origin main && docker compose build frontend-builder && docker compose up -d
+# ✅ 日常代码更新（上传覆盖后，不加 --no-cache）
+cd /root/CourtSimulator && docker compose build frontend-builder && docker compose up -d
+
+# ✅ 前端更新后页面没变（Docker volume 缓存旧产物）
+cd /root/CourtSimulator && docker compose down -v && docker compose up -d
 
 # ❌ 不要无脑加 --no-cache
 docker compose build --no-cache   # 每次 npm install，慢且可能超时
+
+# ❌ 服务器上没有 Git，不要用 git pull
+cd /root/CourtSimulator && git pull origin main   # 会报错
 ```
 
 ---

@@ -1,0 +1,74 @@
+{
+  "officials": {
+    "hubu": {
+      "id": "hubu",
+      "name": "王守财",
+      "title": "户部尚书",
+      "rank": 2,
+      "avatar": "hubu.png",
+      "faction": "财政保守派",
+      "isDefault": true,
+      "isChancellor": false
+    },
+    "bingbu": {
+      "id": "bingbu",
+      "name": "岳铁戈",
+      "title": "兵部尚书",
+      "rank": 2,
+      "avatar": "bingbu.png",
+      "faction": "鹰派强硬派",
+      "isDefault": true,
+      "isChancellor": false
+    },
+    "libu": {
+      "id": "libu",
+      "name": "孔延仁",
+      "title": "礼部尚书",
+      "rank": 2,
+      "avatar": "libu.png",
+      "faction": "祖制保守派",
+      "isDefault": true,
+      "isChancellor": false
+    },
+    "gongbu": {
+      "id": "gongbu",
+      "name": "鲁大匠",
+      "title": "工部尚书",
+      "rank": 2,
+      "avatar": "gongbu.png",
+      "faction": "技术实用派",
+      "isDefault": true,
+      "isChancellor": false
+    },
+    "yushi": {
+      "id": "yushi",
+      "name": "严纠察",
+      "title": "都察院左都御史",
+      "rank": 3,
+      "avatar": "yushi.png",
+      "faction": "监察纠劾派",
+      "isDefault": true,
+      "isChancellor": false
+    },
+    "hanlin": {
+      "id": "hanlin",
+      "name": "文道明",
+      "title": "翰林院掌院学士",
+      "rank": 4,
+      "avatar": "hanlin.png",
+      "faction": "道德理想派",
+      "isDefault": true,
+      "isChancellor": false
+    },
+    "chancellor": {
+      "id": "chancellor",
+      "name": "沈中和",
+      "title": "内阁首辅",
+      "rank": 1,
+      "avatar": "chancellor.png",
+      "faction": "内阁中立派",
+      "isDefault": true,
+      "isChancellor": true
+    }
+  }
+}

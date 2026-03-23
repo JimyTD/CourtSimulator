@@ -63,6 +63,29 @@ enabled: true
 
 ---
 
+## 🔥 CourtSimulator 已踩过的坑（优先排查）
+
+遇到类似问题时**优先检查这些方向**，不要从头分析：
+
+### 坑 1：前端更新后页面仍显示旧内容
+- **症状**：`docker compose build` 成功，但浏览器加载的 JS 文件名没变
+- **根因**：Docker named volume `frontend-dist` 一旦创建有数据，不会随镜像重建自动覆盖
+- **解法**：`docker compose down -v && docker compose up -d`（`-v` 删除旧 volume）
+- **排查顺序**：先 `docker exec court-nginx ls /usr/share/nginx/html/assets/` 对比文件名
+
+### 坑 2：前端报 `Cannot read properties of undefined`（配置文件路径）
+- **症状**：`uiText.emperor` / `uiText.xxx` 为 `undefined`
+- **根因**：组件用 `../../../shared/config/xxx.json` 跨出 frontend 目录，Docker 构建上下文只含 `frontend/`，路径解析失败
+- **解法**：共享配置文件必须在 `frontend/src/data/` 下维护副本，import 用 `../data/xxx.json`
+- **已修复的文件**：`officials.json`、`ui-text.json`
+
+### 坑 3：上传覆盖部署后 .env 丢失
+- **症状**：后端 500，LLM 调用失败
+- **根因**：`deploy_project_preparation` 上传的是完整项目目录，`.env` 不在 Git 中所以不会包含
+- **解法**：切换目录前 `cp /root/CourtSimulator/backend/.env /root/CourtSimulator_<新目录>/backend/.env`
+
+---
+
 ## 📋 排查规范
 
 ### 1. 命令执行规范（Windows）
@@ -148,6 +171,6 @@ execute_command: npm run build && npm run test && npm run deploy
 
 ---
 
-**最后更新**：2026-03-20  
+**最后更新**：2026-03-23  
 **优先级**：🔴 最高（强制执行）  
 **适用范围**：所有 AI 辅助开发项目
