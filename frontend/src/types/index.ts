@@ -9,6 +9,7 @@ export interface Official {
   avatar?: string;
   isDefault?: boolean;
   isChancellor?: boolean;
+  personality?: string; // 自定义官员的性格描述
 }
 
 export type SpeechStatus = 'waiting' | 'thinking' | 'speaking' | 'done' | 'silent';

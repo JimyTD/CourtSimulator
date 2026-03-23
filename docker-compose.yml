@@ -30,11 +30,11 @@ services:
   # ──────────────────────────────────────────
   frontend-builder:
     build:
-      context: .                          # 根目录，含 frontend/ 和 shared/
-      dockerfile: frontend/Dockerfile.build
+      context: ./frontend
+      dockerfile: Dockerfile.build
     container_name: court-frontend-builder
     volumes:
-      - frontend-dist:/app/frontend/dist
+      - frontend-dist:/app/dist
 
   # ──────────────────────────────────────────
   # Nginx：反向代理 + 静态文件服务

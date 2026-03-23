@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useDebateStore } from '../store/debateStore';
+import { useHistoryStore } from '../store/historyStore';
+import type { DebateRecord } from '../store/historyStore';
 import type { Settings, Official } from '../types';
 
 // ============================================================
@@ -44,6 +46,7 @@ function delay(ms: number) {
 
 export function useDebate() {
   const store = useDebateStore();
+  const historyStore = useHistoryStore();
   const wsRef = useRef<WebSocket | null>(null);
   const mockRunningRef = useRef(false);
 
@@ -103,9 +106,34 @@ export function useDebate() {
 
       await delay(500);
       store.completeDebate();
+
+      // 保存本次朝会到历史记录
+      const finalState = useDebateStore.getState();
+      const speeches: DebateRecord['speeches'] = [];
+      Object.values(finalState.officials).forEach((os) => {
+        os.speeches.forEach((s) => {
+          speeches.push({
+            round: s.round,
+            officialId: os.official.id,
+            officialTitle: os.official.title,
+            content: s.content,
+          });
+        });
+      });
+      const record: DebateRecord = {
+        id: debateId,
+        topic,
+        createdAt: Date.now(),
+        rounds: totalRounds,
+        officials: Object.values(finalState.officials).map((os) => os.official.title),
+        speeches,
+        chancellorSummary: finalState.chancellorSummary,
+      };
+      void historyStore.saveRecord(record);
+
       mockRunningRef.current = false;
     },
-    [store]
+    [store, historyStore]
   );
 
   // ----------------------------------------------------------
@@ -141,6 +169,31 @@ export function useDebate() {
               break;
             case 'debate_complete':
               store.completeDebate();
+              // 保存本次朝会到历史记录
+              {
+                const finalState = useDebateStore.getState();
+                const wsSpeeches: DebateRecord['speeches'] = [];
+                Object.values(finalState.officials).forEach((os) => {
+                  os.speeches.forEach((s) => {
+                    wsSpeeches.push({
+                      round: s.round,
+                      officialId: os.official.id,
+                      officialTitle: os.official.title,
+                      content: s.content,
+                    });
+                  });
+                });
+                const wsRecord: DebateRecord = {
+                  id: msg.debate_id || finalState.debateId || `ws-${Date.now()}`,
+                  topic: finalState.topic,
+                  createdAt: Date.now(),
+                  rounds: finalState.totalRounds,
+                  officials: Object.values(finalState.officials).map((os) => os.official.title),
+                  speeches: wsSpeeches,
+                  chancellorSummary: finalState.chancellorSummary,
+                };
+                void useHistoryStore.getState().saveRecord(wsRecord);
+              }
               break;
             case 'error':
               console.error('[WS Error]', msg.code, msg.message);
@@ -177,10 +230,21 @@ export function useDebate() {
       store.resetDebate();
 
       // TODO: 后端就绪后替换为以下逻辑：
+      // import { useCustomOfficialsStore } from '../store/customOfficialsStore';
+      // const customOfficials = useCustomOfficialsStore.getState().customOfficials;
       // const res = await fetch('/api/debate/start', {
       //   method: 'POST',
       //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ topic, officials: settings.selectedOfficials, rounds: settings.rounds, settings: { length: settings.length, style: settings.style }, userKey: settings.userKey }),
+      //   body: JSON.stringify({
+      //     topic,
+      //     officials: settings.selectedOfficials,
+      //     rounds: settings.rounds,
+      //     settings: { length: settings.length, style: settings.style },
+      //     userKey: settings.userKey,
+      //     custom_officials: customOfficials
+      //       .filter(o => settings.selectedOfficials.includes(o.id))
+      //       .map(o => ({ id: o.id, name: o.name, title: o.title, rank: o.rank, personality: o.personality })),
+      //   }),
       // });
       // const { debate_id } = await res.json();
       // connectWs(debate_id);

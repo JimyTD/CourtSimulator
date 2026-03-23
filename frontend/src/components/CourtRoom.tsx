@@ -1,21 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { OfficialCard } from './OfficialCard';
 import { EmperorInput } from './EmperorInput';
 import { ImperialDecree } from './ImperialDecree';
 import { ChancellorSummary } from './ChancellorSummary';
 import { SettingsPanel } from './SettingsPanel';
+import { HistoryPanel } from './HistoryPanel';
 import { useDebate } from '../hooks/useDebate';
 import { useSettings } from '../hooks/useSettings';
 import { useDebateStore } from '../store/debateStore';
+import { useHistoryStore } from '../store/historyStore';
 import uiText from '../data/ui-text.json';
 
 export function CourtRoom() {
   const { startDebate } = useDebate();
   const { settings, updateSettings } = useSettings();
   const debateState = useDebateStore();
+  const { loadHistory } = useHistoryStore();
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [decree, setDecree] = useState<string | null>(null);
+
+  // 初始化时加载历史记录
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
 
   const isRunning = debateState.status === 'running';
   const isComplete = debateState.status === 'complete';
@@ -53,11 +62,17 @@ export function CourtRoom() {
             </span>
           )}
           <button
-            className="btn btn--ghost"
+            className="btn btn--ghost btn--header-action"
+            onClick={() => setHistoryOpen(true)}
+          >
+            朝会记录
+          </button>
+          <button
+            className="btn btn--ghost btn--header-action"
             onClick={() => setSettingsOpen(true)}
             disabled={isRunning}
           >
-            ⚙
+            朝堂设置
           </button>
         </div>
       </header>
@@ -163,6 +178,11 @@ export function CourtRoom() {
             />
           </div>
         </div>
+      )}
+
+      {/* ── 历史记录面板 ── */}
+      {historyOpen && (
+        <HistoryPanel onClose={() => setHistoryOpen(false)} />
       )}
     </div>
   );

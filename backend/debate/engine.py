@@ -47,6 +47,7 @@ class DebateConfig:
         "style": "modern",
     })
     user_key: UserKey | None = None
+    custom_officials: list = field(default_factory=list)  # CustomOfficialData 列表
 
 
 @dataclass
@@ -84,6 +85,12 @@ class DebateEngine:
         officials = load_selected_officials([
             oid for oid in self.config.official_ids if oid != CHANCELLOR_ID
         ])
+
+        # 追加自定义官员
+        from agents.loader import create_custom_agent
+        for custom_data in self.config.custom_officials:
+            if custom_data.id != CHANCELLOR_ID:
+                officials.append(create_custom_agent(custom_data))
 
         if not officials:
             await self.streamer.send_error(
@@ -141,12 +148,32 @@ class DebateEngine:
         ]
         await asyncio.gather(*thinking_tasks, return_exceptions=True)
 
-        # 并行调用所有官员 LLM
-        speak_tasks = [
-            o.speak(context.to_dict(), round_num, self.config.user_key)
-            for o in officials
-        ]
-        results = await asyncio.gather(*speak_tasks, return_exceptions=True)
+        # 第 1 轮：并行调用（无同轮历史可注入，靠禁止重复约束降低相似度）
+        # 第 2 轮起：顺序调用，每位官员能看到本轮前面已发言的内容
+        if round_num == 1:
+            speak_tasks = [
+                o.speak(context.to_dict(), round_num, self.config.user_key)
+                for o in officials
+            ]
+            results = await asyncio.gather(*speak_tasks, return_exceptions=True)
+        else:
+            # 顺序调用，累积同轮已发言
+            results = []
+            same_round_so_far: list[dict] = []
+            for o in officials:
+                result = await _speak_with_same_round(
+                    o, context.to_dict(), round_num,
+                    same_round_so_far, self.config.user_key
+                )
+                results.append(result)
+                # 将本次结果加入同轮记录，供后续官员参考
+                content = result if not isinstance(result, Exception) else "SILENT"
+                same_round_so_far.append({
+                    "official_id": o.id,
+                    "name": o.name,
+                    "rank": o.rank,
+                    "content": content,
+                })
 
         # 推送发言结果 & 收集本轮 speeches（顺序推送）
         round_speeches: list[dict] = []
@@ -238,3 +265,34 @@ def _build_chancellor_messages(context: DebateContext) -> list[dict]:
         {"role": "system", "content": CHANCELLOR_SUMMARY_SYSTEM},
         {"role": "user", "content": "\n".join(lines)},
     ]
+
+
+async def _speak_with_same_round(
+    official: OfficialAgent,
+    context_dict: dict,
+    round_num: int,
+    same_round_speeches: list[dict],
+    user_key,
+) -> str:
+    """顺序发言辅助函数：传入同轮已发言，让官员能看到本轮前面的发言内容"""
+    from agents.prompt_builder import build_messages
+    from llm.fallback import chat_with_fallback
+
+    messages = build_messages(
+        official.config,
+        context_dict,
+        round_num,
+        same_round_speeches=same_round_speeches if same_round_speeches else None,
+    )
+
+    full_content = ""
+    async for token in chat_with_fallback(
+        messages,
+        user_key=user_key,
+        stream=True,
+        temperature=0.95,   # 提高多样性
+    ):
+        full_content += token
+
+    full_content = full_content.strip()
+    return full_content if full_content else "SILENT"

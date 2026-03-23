@@ -43,12 +43,21 @@ class UserKeyModel(BaseModel):
     baseUrl: str | None = None
 
 
+class CustomOfficialData(BaseModel):
+    id: str
+    name: str
+    title: str
+    rank: int
+    personality: str  # 性格描述，用于构建 system prompt
+
+
 class StartDebateRequest(BaseModel):
     topic: str
     officials: list[str] = Field(default_factory=list)
     rounds: int = Field(default=2, ge=1, le=3)
     settings: DebateSettings = Field(default_factory=DebateSettings)
     userKey: UserKeyModel | None = None
+    custom_officials: list[CustomOfficialData] = Field(default_factory=list)  # 新增，默认空列表
 
 
 class CreateOfficialRequest(BaseModel):
@@ -109,6 +118,7 @@ async def start_debate(req: StartDebateRequest):
         rounds=req.rounds,
         settings=req.settings.model_dump(),
         user_key=user_key,
+        custom_officials=req.custom_officials,  # 新增：传入自定义官员列表
     )
     _debate_registry[debate_id] = config
 

@@ -83,6 +83,7 @@ class OfficialAgent:
             messages,
             user_key=user_key,
             stream=True,
+            temperature=0.95,   # 提高多样性，避免重复句式
         ):
             full_content += token
 

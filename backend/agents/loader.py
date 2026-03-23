@@ -83,3 +83,19 @@ def _parse_config(oid: str, data: dict) -> OfficialConfig:
 def invalidate_cache():
     """清除配置缓存（自定义官员创建后调用）"""
     _load_raw.cache_clear()
+
+
+def create_custom_agent(data) -> OfficialAgent:
+    """根据前端传来的自定义官员数据，动态创建 OfficialAgent"""
+    config = OfficialConfig(
+        id=data.id,
+        name=data.name,
+        title=data.title,
+        rank=data.rank,
+        personality=data.personality,
+        system_prompt="",  # 留空，由 prompt_builder 用 personality 生成
+        avatar="",
+        faction="",
+        is_default=False,
+    )
+    return OfficialAgent(config)
