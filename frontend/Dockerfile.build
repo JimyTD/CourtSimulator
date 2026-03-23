@@ -1,0 +1,19 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# 先复制 package.json 安装依赖（利用缓存层）
+COPY frontend/package.json frontend/package-lock.json* ./frontend/
+RUN cd frontend && npm install --frozen-lockfile 2>/dev/null || npm install
+
+# 复制 shared 配置（前端会引用 ../../shared/config/）
+COPY shared/ ./shared/
+
+# 复制前端源码
+COPY frontend/ ./frontend/
+
+# 构建生产包
+WORKDIR /app/frontend
+RUN npm run build
+
+# 产物在 /app/frontend/dist
