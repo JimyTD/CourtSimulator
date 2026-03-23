@@ -1,0 +1,98 @@
+---
+description: UI 文案配置驱动规则 - 所有界面文本从配置读取，严禁硬编码
+alwaysApply: false
+enabled: true
+---
+
+# UI 文案配置驱动规则
+
+## 📌 核心原则
+
+**所有 UI 文案、提示消息、角色台词等必须从配置文件读取，严禁硬编码！**
+
+---
+
+## 🎯 CourtSimulator 的适用范围
+
+### ✅ 必须从配置读取
+
+- 官员角色名称（户部尚书、兵部尚书等）
+- 官员身份描述、头衔
+- 界面标题、按钮文字
+- 系统提示语（"皇上，臣有本奏"等）
+- 空状态提示、加载提示
+- 官员的 System Prompt 模板（角色性格描述）
+
+### ❌ 禁止硬编码的做法
+
+```javascript
+// ❌ 错误
+<h1>上朝模拟器</h1>
+role.name = "户部尚书"
+placeholder = "请皇上明示..."
+
+// ✅ 正确
+<h1>{t.app.name}</h1>
+role.name = officials[roleId].name
+placeholder = t.ui.inputPlaceholder
+```
+
+---
+
+## 📁 配置文件结构
+
+```
+X:\CourtSimulator\
+├── shared/
+│   └── config/
+│       ├── officials.json       ← 官员角色配置（名字/性格/prompt模板）
+│       ├── ui-text.json         ← 界面文案
+│       └── game-config.json     ← 游戏规则配置
+```
+
+### officials.json 结构示例
+
+```json
+{
+  "officials": {
+    "hubu": {
+      "name": "户部尚书",
+      "title": "掌管天下钱粮",
+      "personality": "精打细算，保守谨慎",
+      "systemPrompt": "你是大明户部尚书，掌管天下钱粮。开口必谈银两，多用「国库空虚」「劳民伤财」。",
+      "avatar": "hubu.png",
+      "faction": "conservative"
+    },
+    "bingbu": {
+      "name": "兵部尚书",
+      "title": "掌管天下兵马",
+      "personality": "强硬好战，优先军事手段",
+      "systemPrompt": "你是大明兵部尚书，掌管天下兵马。凡事先想军事手段，好战，不轻易妥协。",
+      "avatar": "bingbu.png",
+      "faction": "aggressive"
+    }
+  }
+}
+```
+
+---
+
+## 🔄 添加新官员的流程
+
+1. 在 `officials.json` 中添加新角色配置
+2. 准备角色头像（放入 `frontend/public/avatars/`）
+3. 无需改动前端代码，自动渲染
+
+---
+
+## ✅ 检查清单
+
+- [ ] 所有官员信息从 `officials.json` 读取，无硬编码
+- [ ] 界面文本从 `ui-text.json` 读取
+- [ ] 新增角色只需改配置文件，不改代码
+
+---
+
+**最后更新**：2026-03-23
+**优先级**：🟡 中高（影响可扩展性和官员角色管理）
+**适用范围**：前端组件、后端 Agent 初始化

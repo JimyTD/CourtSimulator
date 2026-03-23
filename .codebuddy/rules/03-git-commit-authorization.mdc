@@ -1,0 +1,78 @@
+---
+description: Git 提交授权机制 - AI 不主动提交，必须用户明确指令
+alwaysApply: true
+enabled: true
+---
+
+# Git 提交授权机制
+
+## 🎯 核心原则
+
+**AI 助手不可以主动提交代码，但在用户明确指令下可以执行 Git 操作。**
+
+---
+
+## ❌ 禁止主动提交
+
+- ❌ 完成代码修改后自动提交
+- ❌ 用户只是说"完成了"、"好了"等模糊表述
+- ❌ AI 认为"应该提交了"而主动提交
+
+## ✅ 允许经授权的提交
+
+- ✅ 用户明确说"提交到 Git"
+- ✅ 用户明确说"commit 并 push"
+- ✅ 用户明确说"帮我提交"
+
+---
+
+## ✅ 只读操作（始终允许，无需授权）
+
+```bash
+git status / git log / git diff / git branch
+```
+
+---
+
+## 📖 正确的工作流程
+
+### 完成代码修改后
+
+1. ✅ 列出修改的文件
+2. ✅ 运行 `git status` 显示改动
+3. ✅ **提示用户可以提交**（提供命令模板）
+4. ❌ **不主动执行 git commit/push**
+
+---
+
+## CourtSimulator 专用提交规范
+
+### Commit Message 格式
+
+```
+<类型>(<模块>): <简短描述>
+
+类型：feat | fix | refactor | docs | chore
+模块：backend | frontend | android | agents | shared
+```
+
+**示例：**
+```
+feat(backend): 添加官员并行辩论接口
+fix(frontend): 修复流式输出渲染异常
+feat(agents): 新增御史大夫角色 prompt
+```
+
+### 分支策略
+
+```
+main          ← 稳定版本，只通过 PR 合入
+dev           ← 日常开发，可直接 push
+feature/xxx   ← 功能分支
+```
+
+---
+
+**最后更新**：2026-03-23
+**优先级**：🔴 高（强制执行）
+**适用范围**：CourtSimulator 所有版本管理操作

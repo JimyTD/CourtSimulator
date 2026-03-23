@@ -1,0 +1,79 @@
+---
+description: 文档分层管理规则 - 临时记录与正式文档分离
+alwaysApply: false
+enabled: true
+---
+
+# 文档分层管理规则
+
+## 📌 核心原则
+
+**所有 bugfix、开发日志、临时记录必须统一放在 `docs/dev-logs/` 目录下，严禁在项目根目录创建！**
+
+---
+
+## 📂 CourtSimulator 目录结构规范
+
+```
+X:\CourtSimulator\
+├── docs/
+│   ├── dev-logs/               ← 临时记录（可定期清理）
+│   │   ├── 2026-03-23-xxx.md
+│   │   └── BUILD_NOTES.md
+│   ├── ARCHITECTURE.md         ← 系统架构（长期维护）
+│   ├── API.md                  ← 接口文档（长期维护）
+│   └── OFFICIALS_DESIGN.md     ← 官员角色设计文档（长期维护）
+├── README.md                   ← 项目说明（根目录可以）
+└── CHANGELOG.md                ← 变更日志（根目录可以）
+```
+
+---
+
+## 🚫 禁止的做法
+
+```
+❌ X:\CourtSimulator\BUGFIX.md
+❌ X:\CourtSimulator\backend\FIXES.md
+❌ X:\CourtSimulator\frontend\TEMP.md
+```
+
+## ✅ 正确的做法
+
+```
+✅ X:\CourtSimulator\docs\dev-logs\2026-03-23-agent-streaming-fix.md
+✅ X:\CourtSimulator\docs\dev-logs\WEBSOCKET_NOTES.md
+```
+
+---
+
+## 📝 命名规范
+
+- **频繁更新的临时记录** → `YYYY-MM-DD-简短描述.md`
+- **相对稳定的设计记录** → `大写字母_下划线.md`
+
+---
+
+## 💡 CourtSimulator 特定分类
+
+| 文档类型 | 放在哪里 |
+|---------|---------|
+| 官员角色设计 | `docs/OFFICIALS_DESIGN.md` |
+| API 接口文档 | `docs/API.md` |
+| 系统架构说明 | `docs/ARCHITECTURE.md` |
+| AI Prompt 优化记录 | `docs/dev-logs/PROMPT_TUNING.md` |
+| 流式输出调试 | `docs/dev-logs/STREAMING_DEBUG.md` |
+| 构建错误记录 | `docs/dev-logs/build-log.txt` |
+
+---
+
+## ✅ 检查清单
+
+- [ ] 项目根目录是否有临时文档？有则移到 `docs/dev-logs/`
+- [ ] `docs/dev-logs/` 是否超过 3 个月未清理？
+- [ ] 新文档创建时路径是否正确？
+
+---
+
+**最后更新**：2026-03-23
+**优先级**：🟡 中（保持项目整洁）
+**适用范围**：整个 CourtSimulator 项目

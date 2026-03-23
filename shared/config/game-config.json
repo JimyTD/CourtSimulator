@@ -1,0 +1,53 @@
+{
+  "debate": {
+    "defaultRounds": 2,
+    "maxRounds": 3,
+    "defaultLength": "medium",
+    "defaultStyle": "modern",
+    "lengthTokens": {
+      "short": 100,
+      "medium": 200,
+      "long": 350
+    }
+  },
+  "silence": {
+    "enabled": true,
+    "displayText": "臣无奏",
+    "rankDiffThreshold": 3
+  },
+  "typing": {
+    "fastMs": 30,
+    "slowMs": 80
+  },
+  "llm": {
+    "defaultProvider": "deepseek",
+    "fallbackProvider": "glm4",
+    "providers": {
+      "deepseek": {
+        "baseUrl": "https://api.deepseek.com",
+        "defaultModel": "deepseek-chat",
+        "displayName": "DeepSeek V3"
+      },
+      "glm4": {
+        "baseUrl": "https://open.bigmodel.cn/api/paas/v4/",
+        "defaultModel": "glm-4-flash",
+        "displayName": "GLM4-Flash（智谱）"
+      },
+      "openai": {
+        "baseUrl": "https://api.openai.com/v1",
+        "defaultModel": "gpt-4o",
+        "displayName": "OpenAI GPT"
+      },
+      "gemini": {
+        "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "defaultModel": "gemini-2.0-flash",
+        "displayName": "Google Gemini"
+      },
+      "custom": {
+        "baseUrl": "",
+        "defaultModel": "",
+        "displayName": "自定义"
+      }
+    }
+  }
+}

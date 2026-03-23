@@ -1,0 +1,735 @@
+/* =====================================================
+   上朝模拟器 · 古典水墨风全局样式
+   ===================================================== */
+
+/* ── 字体导入（备用，index.html 已 preconnect） ── */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;700&display=swap');
+
+/* ── CSS 变量 ── */
+:root {
+  --color-ink: #1a1008;
+  --color-ink-light: #4a3728;
+  --color-ink-faint: #8b7355;
+  --color-paper: #f5f0e8;
+  --color-paper-dark: #e8dfc8;
+  --color-paper-darker: #d8cdb0;
+  --color-vermilion: #c0392b;
+  --color-vermilion-hover: #a93226;
+  --color-gold: #b8860b;
+  --color-gold-hover: #9a7109;
+  --color-jade: #2e7d5e;
+  --color-gray: #8b7355;
+
+  --font-body: 'Noto Serif SC', 'Songti SC', 'SimSun', serif;
+
+  --border-ink: 1px solid var(--color-ink-faint);
+  --border-ink-strong: 1px solid var(--color-ink-light);
+  --radius-sm: 2px; /* 少用圆角，保持水墨风棱角 */
+
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 40px;
+
+  --shadow-card: 2px 2px 8px rgba(26, 16, 8, 0.12);
+}
+
+/* ── 全局重置 ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  /* 宣纸纹理：用微妙的渐变模拟 */
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 28px,
+      rgba(139, 115, 85, 0.06) 28px,
+      rgba(139, 115, 85, 0.06) 29px
+    );
+}
+
+#root {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--spacing-lg) var(--spacing-md);
+}
+
+/* =====================================================
+   通用按钮
+   ===================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  border: var(--border-ink);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  background: transparent;
+  color: var(--color-ink);
+  letter-spacing: 0.05em;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn--vermilion {
+  background: var(--color-vermilion);
+  color: #fff;
+  border-color: var(--color-vermilion);
+}
+.btn--vermilion:hover:not(:disabled) {
+  background: var(--color-vermilion-hover);
+  border-color: var(--color-vermilion-hover);
+}
+
+.btn--gold {
+  background: var(--color-gold);
+  color: #fff;
+  border-color: var(--color-gold);
+}
+.btn--gold:hover:not(:disabled) {
+  background: var(--color-gold-hover);
+  border-color: var(--color-gold-hover);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--color-ink-light);
+  border-color: var(--color-paper-darker);
+}
+.btn--ghost:hover:not(:disabled) {
+  background: var(--color-paper-dark);
+  border-color: var(--color-ink-faint);
+}
+
+.btn--option {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: 0.85rem;
+  color: var(--color-ink-light);
+  border-color: var(--color-paper-darker);
+}
+.btn--option:hover:not(:disabled) {
+  border-color: var(--color-ink-faint);
+  background: var(--color-paper-dark);
+}
+.btn--option--active {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border-color: var(--color-ink);
+}
+
+/* =====================================================
+   CourtRoom — 主容器
+   ===================================================== */
+.court-room {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+/* ── 顶部 Header ── */
+.court-room__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  border-bottom: var(--border-ink-strong);
+  padding-bottom: var(--spacing-sm);
+}
+
+.court-room__title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--color-ink);
+}
+
+.court-room__subtitle {
+  margin-left: var(--spacing-sm);
+  font-size: 0.85rem;
+  color: var(--color-gray);
+  letter-spacing: 0.08em;
+}
+
+.court-room__header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.court-room__round-badge {
+  font-size: 0.85rem;
+  color: var(--color-vermilion);
+  border: 1px solid var(--color-vermilion);
+  padding: 2px var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.05em;
+}
+
+/* ── 议题区 ── */
+.court-room__topic {
+  text-align: center;
+  padding: var(--spacing-sm) 0;
+  border-bottom: var(--border-ink);
+}
+
+.court-room__topic-label {
+  font-size: 0.8rem;
+  color: var(--color-gray);
+  margin-right: var(--spacing-sm);
+  letter-spacing: 0.1em;
+}
+
+.court-room__topic-text {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--color-ink);
+  letter-spacing: 0.1em;
+}
+
+/* ── 输入区 ── */
+.court-room__input-area {
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-md) 0;
+}
+
+/* ── 官员网格 ── */
+.court-room__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.court-room__officials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.court-room__chancellor-row {
+  display: flex;
+  justify-content: center;
+}
+
+.court-room__chancellor-row .official-card {
+  max-width: 480px;
+  width: 100%;
+}
+
+/* ── 页脚 ── */
+.court-room__footer {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-md);
+  padding-top: var(--spacing-sm);
+}
+
+/* ── 御批已下 ── */
+.court-room__decree-issued {
+  text-align: center;
+  padding: var(--spacing-lg);
+  border: var(--border-ink-strong);
+  background: var(--color-paper-dark);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.court-room__decree-label {
+  font-size: 0.85rem;
+  color: var(--color-gray);
+  letter-spacing: 0.1em;
+}
+
+.court-room__decree-text {
+  font-size: 1.15rem;
+  color: var(--color-vermilion);
+  letter-spacing: 0.1em;
+  line-height: 1.8;
+}
+
+/* =====================================================
+   OfficialCard — 官员卡片
+   ===================================================== */
+.official-card {
+  border: var(--border-ink);
+  background: var(--color-paper);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  position: relative;
+}
+
+/* 左侧品级色条 */
+.official-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--color-ink-faint);
+  transition: background 0.2s;
+}
+
+.official-card--thinking::before { background: var(--color-gold); }
+.official-card--speaking::before { background: var(--color-jade); }
+.official-card--done::before     { background: var(--color-ink-light); }
+.official-card--silent::before   { background: var(--color-paper-darker); }
+
+.official-card--thinking {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 12px rgba(184, 134, 11, 0.15);
+}
+.official-card--speaking {
+  border-color: var(--color-jade);
+  box-shadow: 0 0 12px rgba(46, 125, 94, 0.15);
+}
+
+/* ── Header ── */
+.official-card__header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-xs);
+  border-bottom: var(--border-ink);
+  padding-bottom: var(--spacing-xs);
+}
+
+.official-card__rank {
+  font-size: 0.7rem;
+  color: var(--color-gray);
+  border: 1px solid var(--color-paper-darker);
+  padding: 0 4px;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.official-card__name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-ink);
+  letter-spacing: 0.05em;
+}
+
+.official-card__title {
+  font-size: 0.75rem;
+  color: var(--color-gray);
+  letter-spacing: 0.04em;
+}
+
+/* ── Body ── */
+.official-card__body {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+}
+
+.official-card__status-text {
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+}
+
+.official-card__status-text--muted    { color: var(--color-paper-darker); }
+.official-card__status-text--thinking { color: var(--color-gold); }
+.official-card__status-text--silent   { color: var(--color-gray); font-style: italic; }
+
+.official-card__speech {
+  font-size: 0.88rem;
+  line-height: 1.9;
+  color: var(--color-ink);
+  letter-spacing: 0.05em;
+  word-break: break-all;
+}
+
+/* 光标闪烁 */
+.official-card__cursor {
+  display: inline-block;
+  color: var(--color-jade);
+  font-weight: 300;
+  animation: blink-cursor 0.8s step-end infinite;
+  margin-left: 1px;
+}
+
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* =====================================================
+   EmperorInput — 皇帝输入
+   ===================================================== */
+.emperor-input {
+  width: 100%;
+  max-width: 640px;
+}
+
+.emperor-input__inner {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: flex-end;
+}
+
+.emperor-input__textarea {
+  flex: 1;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: var(--border-ink-strong);
+  border-radius: var(--radius-sm);
+  resize: none;
+  line-height: 1.7;
+  letter-spacing: 0.05em;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.emperor-input__textarea:focus {
+  outline: none;
+  border-color: var(--color-vermilion);
+  box-shadow: 0 0 0 2px rgba(192, 57, 43, 0.15);
+}
+
+.emperor-input__textarea::placeholder {
+  color: var(--color-gray);
+  font-style: italic;
+}
+
+.emperor-input__submit {
+  white-space: nowrap;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+}
+
+/* =====================================================
+   ImperialDecree — 皇帝御批
+   ===================================================== */
+.imperial-decree {
+  border: var(--border-ink-strong);
+  padding: var(--spacing-lg);
+  background: var(--color-paper-dark);
+  box-shadow: var(--shadow-card);
+}
+
+.imperial-decree__label {
+  font-size: 0.8rem;
+  color: var(--color-gray);
+  letter-spacing: 0.15em;
+  margin-bottom: var(--spacing-sm);
+}
+
+.imperial-decree__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.imperial-decree__textarea {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: var(--border-ink-strong);
+  border-radius: var(--radius-sm);
+  resize: none;
+  line-height: 1.8;
+  letter-spacing: 0.05em;
+}
+
+.imperial-decree__textarea:focus {
+  outline: none;
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 2px rgba(184, 134, 11, 0.15);
+}
+
+.imperial-decree__textarea::placeholder {
+  color: var(--color-gray);
+  font-style: italic;
+}
+
+.imperial-decree__submit {
+  align-self: flex-end;
+  letter-spacing: 0.2em;
+  padding: var(--spacing-sm) var(--spacing-xl);
+  font-size: 1rem;
+}
+
+/* =====================================================
+   ChancellorSummary — 丞相总结
+   ===================================================== */
+.chancellor-summary {
+  border: var(--border-ink-strong);
+  border-left: 3px solid var(--color-vermilion);
+  padding: var(--spacing-lg);
+  background: var(--color-paper-dark);
+  box-shadow: var(--shadow-card);
+}
+
+.chancellor-summary__title {
+  font-size: 0.85rem;
+  color: var(--color-vermilion);
+  letter-spacing: 0.15em;
+  margin-bottom: var(--spacing-sm);
+  font-weight: 700;
+}
+
+.chancellor-summary__content {
+  font-size: 0.9rem;
+  line-height: 2;
+  color: var(--color-ink);
+  letter-spacing: 0.06em;
+  white-space: pre-wrap;
+}
+
+.chancellor-summary__loading {
+  color: var(--color-gray);
+  font-style: italic;
+}
+
+/* =====================================================
+   SettingsPanel — 设置面板
+   ===================================================== */
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.settings-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: var(--border-ink-strong);
+  padding-bottom: var(--spacing-sm);
+}
+
+.settings-panel__title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.settings-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.settings-section__label {
+  font-size: 0.85rem;
+  color: var(--color-gray);
+  letter-spacing: 0.1em;
+}
+
+.settings-section__options {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.settings-section__officials {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.official-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: var(--border-ink);
+  border-radius: var(--radius-sm);
+  transition: background 0.1s;
+}
+
+.official-checkbox:hover {
+  background: var(--color-paper-dark);
+}
+
+.official-checkbox input[type='checkbox'] {
+  accent-color: var(--color-vermilion);
+  width: 14px;
+  height: 14px;
+}
+
+.official-checkbox__rank {
+  font-size: 0.75rem;
+  color: var(--color-gray);
+  border: 1px solid var(--color-paper-darker);
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+}
+
+.official-checkbox__name {
+  font-size: 0.88rem;
+  color: var(--color-ink);
+  letter-spacing: 0.05em;
+}
+
+/* AI 配置折叠 */
+.settings-section__collapse-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: var(--font-body);
+}
+
+.settings-section__collapse-icon {
+  font-size: 0.8rem;
+  color: var(--color-gray);
+}
+
+.settings-section__ai-config {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  border: var(--border-ink);
+  background: var(--color-paper-dark);
+  margin-top: var(--spacing-xs);
+}
+
+.form-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.form-row__label {
+  font-size: 0.8rem;
+  color: var(--color-gray);
+  width: 80px;
+  flex-shrink: 0;
+  letter-spacing: 0.04em;
+}
+
+.form-row__input,
+.form-row__select {
+  flex: 1;
+  padding: 4px var(--spacing-sm);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: var(--border-ink-strong);
+  border-radius: var(--radius-sm);
+}
+
+.form-row__input:focus,
+.form-row__select:focus {
+  outline: none;
+  border-color: var(--color-gold);
+}
+
+/* =====================================================
+   Modal 遮罩层
+   ===================================================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 16, 8, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  /* 背景模糊增加沉浸感 */
+  backdrop-filter: blur(2px);
+}
+
+.modal-content {
+  background: var(--color-paper);
+  border: var(--border-ink-strong);
+  box-shadow: 4px 4px 24px rgba(26, 16, 8, 0.3);
+  padding: var(--spacing-lg);
+  width: min(480px, 90vw);
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+/* =====================================================
+   响应式
+   ===================================================== */
+@media (max-width: 600px) {
+  .court-room__officials-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .court-room__title {
+    font-size: 1.2rem;
+  }
+
+  .emperor-input__inner {
+    flex-direction: column;
+  }
+
+  .emperor-input__submit {
+    width: 100%;
+  }
+}
+
+@media (max-width: 400px) {
+  .court-room__officials-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =====================================================
+   滚动条美化（Webkit）
+   ===================================================== */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-paper-dark);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-gray);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-light);
+}

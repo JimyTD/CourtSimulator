@@ -1,0 +1,92 @@
+---
+description: Windows 开发效率优化规则 - 减少弹窗打断，优化命令执行
+alwaysApply: false
+enabled: true
+---
+
+# Windows 开发效率优化规则
+
+## 🎯 核心问题
+
+在 Windows 上使用 `execute_command` 工具时，**每次都会弹出 CMD/PowerShell 窗口打断用户工作**。因此必须优化策略，最小化命令行调用次数。
+
+---
+
+## 📌 核心原则
+
+1. **减少弹窗** — 能不调用命令行就不调用
+2. **合并命令** — 多条命令合并为一条
+3. **避免重试** — 不要反复尝试同一命令的不同形式
+4. **第一次就用对** — npx 优先，不要试了再换
+
+---
+
+## 🔨 CourtSimulator 常用构建命令
+
+### 前端（React + Vite）
+
+```bash
+# ✅ 正确
+cd X:\CourtSimulator\frontend && npx --yes vite build
+
+# ❌ 不要用
+cd X:\CourtSimulator\frontend; node_modules\.bin\vite.cmd build
+```
+
+### 后端（Python FastAPI）
+
+```bash
+# ✅ 正确（合并安装和启动）
+cd X:\CourtSimulator\backend && pip install -r requirements.txt && python -m uvicorn main:app --reload
+
+# ❌ 不要分开执行
+pip install -r requirements.txt
+python -m uvicorn main:app
+```
+
+### 合并检查命令
+
+```bash
+# ✅ 正确（一次弹窗搞定多件事）
+cd X:\CourtSimulator && git status && python -c "import fastapi; print('fastapi ok')"
+
+# ❌ 不要分开
+git status
+python -c "import fastapi"
+```
+
+---
+
+## 📊 命令尝试上限
+
+| 命令类型 | 上限 | 超限后 |
+|---------|------|--------|
+| npx 构建 | 1 次 | 查报错，换思路 |
+| pip install | 1 次 | 检查 requirements.txt |
+| PowerShell 无输出 | 立即放弃 | 换 cmd /c 或 npx |
+
+---
+
+## 🛠️ 项目路径速查
+
+```
+X:\CourtSimulator\                  ← 项目根
+X:\CourtSimulator\backend\          ← Python FastAPI
+X:\CourtSimulator\frontend\         ← React + Vite
+X:\CourtSimulator\shared\config\    ← 共享配置（官员数据等）
+```
+
+---
+
+## ✅ 检查清单
+
+执行命令前确认：
+- [ ] 这条命令能合并到其他命令里吗？
+- [ ] 是否已经是最简洁的写法（npx 优先）？
+- [ ] 是否在反复试同一命令的不同形式？停下换思路
+
+---
+
+**最后更新**：2026-03-23
+**优先级**：🟡 中（提升开发体验）
+**适用范围**：Windows 开发环境下的所有命令操作

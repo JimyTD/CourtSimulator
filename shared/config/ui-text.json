@@ -1,0 +1,51 @@
+{
+  "app": {
+    "name": "上朝模拟器",
+    "subtitle": "天下大事，共议于此"
+  },
+  "ui": {
+    "inputPlaceholder": "皇上有何旨意？",
+    "inputLabel": "今日议题",
+    "startDebate": "宣百官觐见",
+    "thinking": "正在思考...",
+    "silent": "臣无奏",
+    "round": "第{n}轮奏对",
+    "chancellorTitle": "内阁首辅总结",
+    "decree": "御批",
+    "decreePlaceholder": "朕意已决...",
+    "settings": "朝堂设置",
+    "settingsLength": "发言篇幅",
+    "settingsLengthShort": "简短",
+    "settingsLengthMedium": "适中",
+    "settingsLengthLong": "详尽",
+    "settingsRounds": "辩论轮次",
+    "settingsRound1": "一轮",
+    "settingsRound2": "两轮",
+    "settingsRound3": "三轮",
+    "settingsStyle": "文言程度",
+    "settingsStyleModern": "偏现代",
+    "settingsStyleClassical": "偏文言",
+    "settingsSpeed": "显示速度",
+    "settingsSpeedFast": "快",
+    "settingsSpeedSlow": "慢",
+    "settingsOfficials": "参与官员",
+    "settingsAI": "AI 设置",
+    "settingsProvider": "模型提供商",
+    "settingsApiKey": "API Key",
+    "settingsBaseUrl": "Base URL（选填）",
+    "settingsModel": "模型名称",
+    "rankPrefix": "正",
+    "rankSuffix": "品",
+    "rankMap": {
+      "1": "从一品",
+      "2": "正二品",
+      "3": "正三品",
+      "4": "正四品",
+      "5": "正五品",
+      "6": "正六品",
+      "7": "正七品",
+      "8": "正八品",
+      "9": "从九品"
+    }
+  }
+}
