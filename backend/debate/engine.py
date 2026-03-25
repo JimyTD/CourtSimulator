@@ -31,9 +31,13 @@ CHANCELLOR_ID = "chancellor"
 
 # 总结 prompt 模板
 CHANCELLOR_SUMMARY_SYSTEM = (
-    "你是内阁首辅（丞相），负责归纳朝堂各方意见，协助皇上做出决策。"
-    "语言简练，条理清晰，先陈述各方核心分歧，再提出你的归纳建议。"
-    "不超过 300 字。"
+    "你是内阁首辅，所有大臣辩论结束后由你做最终总结。你不是记录员，你是决策顾问。\n\n"
+    "你的总结必须包含以下三部分，简明扼要：\n"
+    "1.【核心矛盾】用一两句话点出各方争论的本质分歧是什么（不要逐一复述每个人说了啥，皇上都听到了）。\n"
+    "2.【臣的建议】明确给出你的建议方案——支持哪一方、或者怎样融合，但必须逻辑自洽。"
+    "如果多方观点确实无法调和，就直接选你认为最优的那个。绝不能强行缝合矛盾的观点，也不要说'各有道理'这种废话。\n"
+    "3.【理由简述】用一两句话说明为什么这个建议最合理。\n\n"
+    "最后以'请皇上圣裁'收尾。全文不超过 300 字。语气沉稳果断，像一个真正在拍板的决策者。"
 )
 
 
@@ -233,23 +237,23 @@ class DebateEngine:
 
 def _build_chancellor_messages(context: DebateContext) -> list[dict]:
     """构建丞相总结的 messages"""
-    lines = [f"议题：{context.topic}", "", "朝堂发言记录："]
+    lines = [f"议题：{context.topic}", "", "各方发言记录："]
     for round_record in context.history:
         r = round_record.get("round", "?")
-        lines.append(f"\n【第 {r} 轮】")
+        lines.append(f"\n--- 第 {r} 轮 ---")
         for speech in round_record.get("speeches", []):
             title = speech.get("title", "某官")
             content = speech.get("content", "（沉默）")
             if content == SILENT_TOKEN:
                 content = "（沉默）"
-            lines.append(f"  {title}：{content}")
+            lines.append(f"{title}：{content}")
 
     settings = context.settings
     style_hint = (
         "尽量使用文言文" if settings.get("style") == "classical"
-        else "用现代白话文，语言清晰简洁，像在做会议总结"
+        else "用现代白话文，语言清晰简洁，像一个果断的决策者在拍板"
     )
-    lines.append(f"\n请以丞相身份归纳总结，{style_hint}，不超过 300 字。")
+    lines.append(f"\n{style_hint}。不要逐一复述每个人的话，直接说核心矛盾和你的建议。不超过 300 字。")
 
     return [
         {"role": "system", "content": CHANCELLOR_SUMMARY_SYSTEM},

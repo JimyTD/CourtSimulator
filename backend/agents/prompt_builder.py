@@ -1,15 +1,23 @@
 """
 agents/prompt_builder.py — 构建官员发言的 messages 列表
 
+设计原则：
+- 官职 = 性格倾向标签，不是职责边界。所有大臣可以讨论任何话题。
+- 每位大臣的目标是：说服皇上采纳自己的方案。
+- 辩论需要对抗性：大臣之间要互相质疑、反驳、争夺最终结论。
+- 品级只影响说话语气和自信程度，不限制发言权。
+- 最终需要收敛到一个可执行的答案，不是各说各的。
+
 注入内容（按顺序）：
 1. 角色设定（officials.json 的 systemPrompt）
-2. 首要约束（议题优先，高于职责限制）
-3. 品级关系说明（当前官员 rank vs 朝堂其他人）
-4. 议题 + 历史发言（第 2 轮起）+ 同轮已发言（第 2 轮起）
-5. 发言长度约束（short≈100字 / medium≈200字 / long≈350字）
-6. 文言文程度（modern / classical）
-7. 沉默说明
-8. 格式要求 + 禁止重复句式
+2. 场景说明（这是模拟朝堂讨论，官职代表性格倾向）
+3. 议题约束
+4. 品级关系（仅影响语气）
+5. 发言长度
+6. 语言风格
+7. 对抗性引导 + 争夺结论
+8. 沉默说明
+9. 格式要求
 """
 from __future__ import annotations
 
@@ -35,9 +43,6 @@ STYLE_MAP = {
     ),
     "classical": "尽量使用文言文，词句典雅，引经据典，避免现代白话",
 }
-
-# 沉默触发的品级差距阈值（比自己高出 N 级以上时，提示可沉默）
-SILENCE_RANK_THRESHOLD = 3
 
 
 def build_messages(
@@ -72,10 +77,9 @@ def build_messages(
     }
 
     same_round_speeches: 同轮中排在本官员之前已完成发言的列表
-    （仅第 1 轮顺序发言时传入，并行模式不传）
     """
     system_content = _build_system(config, context, round_num)
-    user_content = _build_user(context, round_num, same_round_speeches)
+    user_content = _build_user(config, context, round_num, same_round_speeches)
 
     return [
         {"role": "system", "content": system_content},
@@ -92,51 +96,70 @@ def _build_system(config: OfficialConfig, context: dict, round_num: int) -> str:
 
     # 1. 角色设定
     base_prompt = config.system_prompt or (
-        f"你是朝中{config.title}。{config.personality}"
+        f"你是一个性格像{config.title}的人。{config.personality}"
     )
     parts.append(base_prompt)
 
-    # 2. 议题优先约束（高于职责限制）
+    # 2. 场景说明（关键！让 LLM 理解官职 = 性格标签）
+    parts.append(
+        "【重要说明】这是一个模拟朝堂讨论的场景。"
+        "你的官职只代表你的性格倾向和思维方式，不限制你能讨论什么话题。"
+        "无论议题是什么（哪怕是日常琐事），你都要用你的性格特点来给出建议。"
+        "比如：如果议题是'今晚吃什么'，你不应该拒绝讨论或强行往本职工作上扯，"
+        "而是用你的性格来回答——抠门的人会说'吃便宜的就行'，"
+        "豪爽的人会说'大口吃肉'，守旧的人会说'按老规矩来'。"
+    )
+
+    # 3. 议题约束
     topic = context.get("topic", "")
     if topic:
         parts.append(
-            f"【首要约束 - 优先级最高】\n"
-            f"当前议题是：「{topic}」\n"
-            f"你的一切发言必须紧扣此议题，从你的职位视角表达对该议题的明确立场（支持/反对/有条件支持）。\n"
-            f"禁止回避议题、空谈职责、引入与此议题无关的话题。\n"
-            f"你的职责限制服从于此约束——即使议题涉及你职权之外的领域，也必须从本职视角对该议题表态，而非拒绝发言。"
+            f"【议题】当前讨论的问题是：「{topic}」\n"
+            f"你的发言必须紧扣此议题，给出你的明确建议或立场。"
         )
 
-    # 3. 品级关系
-    parts.append(_build_rank_context(config, context))
+    # 4. 品级关系（仅影响语气，不限制发言）
+    rank_hint = _build_rank_context(config, context)
+    if rank_hint:
+        parts.append(rank_hint)
 
-    # 4. 发言长度约束
+    # 5. 发言长度
     settings = context.get("settings", {})
     length_key = settings.get("length", "medium")
     length_desc = LENGTH_MAP.get(length_key, LENGTH_MAP["medium"])
     parts.append(f"【发言长度】本次发言请控制在{length_desc}。")
 
-    # 5. 文言文程度
+    # 6. 语言风格
     style_key = settings.get("style", "modern")
     style_desc = STYLE_MAP.get(style_key, STYLE_MAP["modern"])
     parts.append(f"【语言风格】{style_desc}。")
 
-    # 6. 沉默说明
-    parts.append(_build_silence_hint(config, context, round_num))
+    # 7. 对抗性引导 + 争夺结论
+    parts.append(
+        "【核心目标】这场讨论最终需要得出一个结论供皇上采纳。"
+        "你的目标是说服大家接受你的方案。\n"
+        "- 如果你不同意别人的方案，要明确说出你反对的理由，可以点名反驳。\n"
+        "- 如果你同意某人的方案，也要说清楚为什么，并补充你的角度。\n"
+        "- 不要和稀泥，不要说'各有道理'这种废话。要有明确的立场和态度。\n"
+        "- 你要争取让你的方案成为最终被采纳的那一个。"
+    )
 
-    # 7. 格式要求 + 禁止重复句式
+    # 8. 沉默说明
+    parts.append(_build_silence_hint(round_num))
+
+    # 9. 格式要求
     parts.append(
         "【格式要求】\n"
         "- 直接输出发言内容，不要加任何前缀套话，不要用括号说明动作。\n"
         "- 如选择沉默，只输出英文大写字母 SILENT，不加任何其他文字。\n"
-        "- 【禁止重复】不得重复使用朝堂中其他官员已用过的开场句式。"
-        "每位官员的发言开头必须独特，体现自身性格。"
+        "- 发言开头要体现你的性格特点，不得与其他人雷同。"
     )
 
     return "\n\n".join(parts)
 
 
 def _build_user(
+    config: OfficialConfig,
     context: dict,
     round_num: int,
     same_round_speeches: list[dict] | None = None,
@@ -150,7 +173,7 @@ def _build_user(
     # 历史发言（第 2 轮起注入前轮记录）
     history = context.get("history", [])
     if round_num > 1 and history:
-        parts.append("【前轮朝堂发言记录】")
+        parts.append("【前轮发言记录】")
         for round_record in history:
             r = round_record.get("round", "?")
             parts.append(f"--- 第 {r} 轮 ---")
@@ -164,94 +187,80 @@ def _build_user(
 
     # 同轮已发言（若有）
     if same_round_speeches:
-        parts.append("【本轮朝堂中已有官员先行奏对，内容如下】")
+        parts.append("【本轮其他人已经说了】")
         for speech in same_round_speeches:
             title = speech.get("title", "某官员")
             content = speech.get("content", "（沉默）")
             if content == "SILENT":
                 content = "（沉默）"
             parts.append(f"{title}：{content}")
-        parts.append("（以上为本轮他人发言，请勿重复相同观点或句式）")
         parts.append("")
 
-    # 发言指令
+    # 发言指令（根据轮次不同，引导不同的对抗强度）
     if round_num == 1:
         parts.append(
-            "请就此议题发表你的看法，奏对皇上。\n"
-            "【强制要求】\n"
-            "1. 必须直接回应【今日议题】，明确表达立场（支持/反对/有条件支持），不得空谈职责套话。\n"
-            "2. 论述须结合你的职位视角，说明该议题对你所掌管领域的具体影响或建议。\n"
-            "3. 禁止引入与议题无关的话题。\n"
-            "4. 开场句必须体现你的性格特点，不得与他人雷同。"
+            "现在轮到你发言。\n"
+            "【要求】\n"
+            "1. 针对议题给出你的明确建议——你觉得应该怎么办？\n"
+            "2. 用你自己的性格和思维方式来回答，不要只念职责。\n"
+            "3. 如果前面已有人发言，且你不同意，直接说出来并给出你的理由。\n"
+            "4. 你的目标是提出一个让皇上觉得靠谱的方案。"
         )
     else:
         parts.append(
-            f"这是第 {round_num} 轮，请结合前轮及本轮他人发言，发表你的回应或反驳，亦可沉默（输出 SILENT）。\n"
-            "【强制要求】\n"
-            "1. 回应必须紧扣【今日议题】，不得偏离主旨。\n"
-            "2. 若反驳他人，须针对其关于该议题的具体观点展开，不得泛泛而谈。\n"
-            "3. 禁止引入与议题无关的话题。\n"
-            "4. 不得重复自己或他人在本轮/前轮已说过的观点，须有新的论据或角度。"
+            f"这是第 {round_num} 轮讨论。\n"
+            "【要求】\n"
+            "1. 回顾前面所有人的发言，找出你最不同意的观点，直接反驳——说清楚哪里有问题。\n"
+            "2. 如果你的方案被别人质疑了，要正面回应，不能装没听到。\n"
+            "3. 如果你发现某人的方案确实比你的好，可以转而支持，但要说清楚为什么改变了看法。\n"
+            "4. 不要重复上一轮自己说过的话，要有新的论据或者回应新的质疑。\n"
+            "5. 记住：这场讨论要得出结论，你要推动讨论往你认为对的方向走。"
         )
 
     return "\n".join(parts)
 
 
 def _build_rank_context(config: OfficialConfig, context: dict) -> str:
-    """构建品级关系说明段落"""
+    """构建品级关系说明——仅影响说话语气，不限制发言权"""
     all_officials: list[dict] = context.get("all_officials", [])
     if not all_officials:
         return ""
 
     my_rank = config.rank
-    higher: list[str] = []
-    same: list[str] = []
-    lower: list[str] = []
+    others = [
+        off for off in all_officials
+        if off.get("id") != config.id
+    ]
+    if not others:
+        return ""
 
-    for off in all_officials:
-        if off.get("id") == config.id:
-            continue
-        other_rank = off.get("rank", 5)
-        label = off.get("title", "某官")
-        if other_rank < my_rank:
-            higher.append(f"{label}（{other_rank}品）")
-        elif other_rank == my_rank:
-            same.append(f"{label}（{other_rank}品）")
-        else:
-            lower.append(f"{label}（{other_rank}品）")
+    lines = [
+        f"【说话语气参考】你是{my_rank}品官员。"
+        f"品级只影响你说话的语气和自信程度，不影响你能否发言或发言内容。"
+    ]
 
-    lines = [f"【品级关系】你是{my_rank}品官员。当前朝堂中："]
+    higher = [off.get("title", "某官") for off in others if off.get("rank", 5) < my_rank]
+    lower = [off.get("title", "某官") for off in others if off.get("rank", 5) > my_rank]
+
     if higher:
-        lines.append(f"  品级高于你的官员：{'、'.join(higher)}——与其交流需适当恭敬。")
-    if same:
-        lines.append(f"  与你同品的官员：{'、'.join(same)}——可平等交流。")
+        lines.append(
+            f"  对{'/'.join(higher)}说话时语气可以稍微客气些，但观点该反驳照样反驳。"
+        )
     if lower:
-        lines.append(f"  品级低于你的官员：{'、'.join(lower)}——可居高临下。")
+        lines.append(
+            f"  对{'/'.join(lower)}说话时可以更自信直接，但不要因为品级高就不讲理。"
+        )
 
     return "\n".join(lines)
 
 
-def _build_silence_hint(config: OfficialConfig, context: dict, round_num: int) -> str:
-    """生成沉默提示。第一轮不建议沉默；第二轮起，品级差距大时提示可沉默。"""
+def _build_silence_hint(round_num: int) -> str:
+    """生成沉默提示。第一轮必须发言；后续轮次只有真的完全无话可说才沉默。"""
     if round_num <= 1:
-        return "【沉默说明】第一轮请务必发言，不得沉默。"
+        return "【沉默说明】第一轮每个人都必须发言，不得沉默。"
 
-    all_officials: list[dict] = context.get("all_officials", [])
-    my_rank = config.rank
-
-    has_much_higher = any(
-        (my_rank - off.get("rank", 5)) >= SILENCE_RANK_THRESHOLD
-        for off in all_officials
-        if off.get("id") != config.id
-    )
-
-    if has_much_higher:
-        return (
-            "【沉默说明】朝堂中有品级远高于你的大员。"
-            "若你认为已无新意可奏、或不便与高品大员正面交锋，"
-            "可选择沉默，此时仅输出 SILENT 即可。"
-        )
     return (
-        "【沉默说明】若你确实无话可说，可输出 SILENT；"
-        "否则建议就前轮发言发表看法。"
+        "【沉默说明】如果你确实已经没有任何新内容要说（既不需要反驳别人，"
+        "自己的观点也不需要补充），可以输出 SILENT 表示沉默。"
+        "但只要有任何想回应的，就应该继续发言。"
     )

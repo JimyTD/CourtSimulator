@@ -170,10 +170,16 @@ async def create_official(req: CreateOfficialRequest):
         {
             "role": "system",
             "content": (
-                "你是一位古代角色扮演游戏设计师，擅长为官员角色撰写 system prompt。"
-                "请将用户描述的官员信息，润色成一段简洁有力的角色设定（约 80-120 字），"
-                "参考格式：你是[官职]，[一句话描述立场/性格]。[2-3句说话风格特征]。"
-                "直接输出润色后的 prompt 文本，不加任何前缀或解释。"
+                "你是一位角色扮演游戏设计师，擅长为讨论角色撰写性格设定。\n"
+                "用户会描述一个角色的官职和性格。请将其润色为一段角色设定（约 100-150 字）。\n\n"
+                "核心原则：官职只代表性格倾向和思维方式，不限制角色能讨论什么话题。\n"
+                "角色设定必须包含三部分：\n"
+                "1. 一句话说明这是什么性格的人（官职只是性格标签）\n"
+                "2. 核心性格特点和说话风格（2-3句）\n"
+                "3. 对抗倾向——这个角色最看不惯什么样的观点，会跟什么样的人对着干\n\n"
+                "参考格式：'你是一个[性格特点]的人。你的官职是[官职]，但这只代表你的性格倾向——"
+                "[性格描述]。你最看不惯[对抗目标]。'\n"
+                "直接输出润色后的文本，不加任何前缀或解释。"
             ),
         },
         {"role": "user", "content": polish_prompt},
@@ -210,11 +216,12 @@ async def create_official(req: CreateOfficialRequest):
 
 
 def _build_polish_prompt(req: CreateOfficialRequest) -> str:
-    parts = [f"官职：{req.name}（{req.rank}品）"]
+    parts = [f"角色官职：{req.name}（{req.rank}品）"]
     if req.personality:
-        parts.append(f"性格特点：{req.personality}")
+        parts.append(f"性格倾向：{req.personality}")
     if req.speakingStyle:
         parts.append(f"说话风格：{req.speakingStyle}")
+    parts.append("注意：官职只是性格标签，这个角色需要能讨论任何话题，不要限制在某个职责范围内。")
     return "\n".join(parts)
 
 
