@@ -81,18 +81,34 @@ class DebateEngine:
 
     async def run(self) -> None:
         """执行完整辩论流程"""
-        # 加载参与官员（不含丞相，丞相在最后单独处理）
-        officials = load_selected_officials([
-            oid for oid in self.config.official_ids if oid != CHANCELLOR_ID
-        ])
+        # 分离预设官员 ID 和自定义官员 ID
+        preset_ids = [
+            oid for oid in self.config.official_ids
+            if oid != CHANCELLOR_ID and not oid.startswith("custom_")
+        ]
 
-        # 追加自定义官员
+        # 加载预设官员（不含丞相，丞相在最后单独处理）
+        officials = load_selected_officials(preset_ids)
+
+        # 追加自定义官员（来自 custom_officials 字段）
         from agents.loader import create_custom_agent
         for custom_data in self.config.custom_officials:
             if custom_data.id != CHANCELLOR_ID:
                 officials.append(create_custom_agent(custom_data))
 
+        logger.warning(
+            "参与官员: preset_ids=%s, custom_officials=%s, loaded=%d",
+            preset_ids,
+            [getattr(c, 'id', str(c)) for c in self.config.custom_officials],
+            len(officials),
+        )
+
         if not officials:
+            logger.warning(
+                "no_officials! official_ids=%s, custom_officials count=%d",
+                self.config.official_ids,
+                len(self.config.custom_officials),
+            )
             await self.streamer.send_error(
                 "no_officials", "没有可用的官员，请检查官员 ID 配置"
             )
@@ -103,7 +119,7 @@ class DebateEngine:
             topic=self.config.topic,
             settings=self.config.settings,
             all_officials=[
-                {"id": o.id, "name": o.name, "rank": o.rank}
+                {"id": o.id, "title": o.config.title, "rank": o.rank}
                 for o in officials
             ],
         )
@@ -141,73 +157,47 @@ class DebateEngine:
     ) -> None:
         await self.streamer.send_round_start(round_num)
 
-        # 先并行推送"正在思考"
-        thinking_tasks = [
-            self.streamer.send_official_thinking(o.id, o.name, round_num)
-            for o in officials
-        ]
-        await asyncio.gather(*thinking_tasks, return_exceptions=True)
+        # 先推送"正在思考"（逐个）
+        for o in officials:
+            await self.streamer.send_official_thinking(o.id, o.title, round_num)
 
-        # 第 1 轮：并行调用（无同轮历史可注入，靠禁止重复约束降低相似度）
-        # 第 2 轮起：顺序调用，每位官员能看到本轮前面已发言的内容
-        if round_num == 1:
-            speak_tasks = [
-                o.speak(context.to_dict(), round_num, self.config.user_key)
-                for o in officials
-            ]
-            results = await asyncio.gather(*speak_tasks, return_exceptions=True)
-        else:
-            # 顺序调用，累积同轮已发言
-            results = []
-            same_round_so_far: list[dict] = []
-            for o in officials:
-                result = await _speak_with_same_round(
-                    o, context.to_dict(), round_num,
-                    same_round_so_far, self.config.user_key
-                )
-                results.append(result)
-                # 将本次结果加入同轮记录，供后续官员参考
-                content = result if not isinstance(result, Exception) else "SILENT"
-                same_round_so_far.append({
-                    "official_id": o.id,
-                    "name": o.name,
-                    "rank": o.rank,
-                    "content": content,
-                })
-
-        # 推送发言结果 & 收集本轮 speeches（顺序推送）
+        # 所有轮次统一顺序调用，每位官员能看到本轮前面已发言的内容
+        # 每位官员：thinking → 流式发言(逐字推送) → 发言完成 → 下一位
         round_speeches: list[dict] = []
-        for official, result in zip(officials, results):
-            if isinstance(result, Exception):
-                logger.warning("官员 %s 发言失败: %s", official.id, result)
-                await self.streamer.send_official_silent(official.id, official.name)
-                round_speeches.append({
-                    "official_id": official.id,
-                    "name": official.name,
-                    "rank": official.rank,
-                    "content": SILENT_TOKEN,
-                })
-                continue
+        same_round_so_far: list[dict] = []
+        for o in officials:
+            # 发言（流式推送 token）
+            result = await _speak_with_same_round(
+                o, context.to_dict(), round_num,
+                same_round_so_far, self.config.user_key,
+                streamer=self.streamer,
+            )
 
-            content: str = result
-            if content.strip().upper() == SILENT_TOKEN:
-                await self.streamer.send_official_silent(official.id, official.name)
-                round_speeches.append({
-                    "official_id": official.id,
-                    "name": official.name,
-                    "rank": official.rank,
-                    "content": SILENT_TOKEN,
-                })
+            # 判断发言内容
+            if isinstance(result, Exception):
+                logger.warning("官员 %s 发言失败: %s", o.id, result)
+                await self.streamer.send_official_silent(o.id, o.title)
+                speech_content = SILENT_TOKEN
+            elif result.strip().upper() == SILENT_TOKEN:
+                await self.streamer.send_official_silent(o.id, o.title)
+                speech_content = SILENT_TOKEN
             else:
-                await self.streamer.send_official_speech(
-                    official.id, official.name, official.rank, round_num, content
+                # 流式 token 已在 _speak_with_same_round 中推送
+                # 这里发一个 speech_done 标记完成，并附带完整文本
+                await self.streamer.send_official_speech_done(
+                    o.id, o.title, o.rank, round_num, result
                 )
-                round_speeches.append({
-                    "official_id": official.id,
-                    "name": official.name,
-                    "rank": official.rank,
-                    "content": content,
-                })
+                speech_content = result
+
+            # 记录本轮发言
+            speech_record = {
+                "official_id": o.id,
+                "title": o.title,
+                "rank": o.rank,
+                "content": speech_content,
+            }
+            same_round_so_far.append(speech_record)
+            round_speeches.append(speech_record)
 
         # 本轮结束：保存历史，供下轮注入
         context.history.append({
@@ -248,16 +238,16 @@ def _build_chancellor_messages(context: DebateContext) -> list[dict]:
         r = round_record.get("round", "?")
         lines.append(f"\n【第 {r} 轮】")
         for speech in round_record.get("speeches", []):
-            name = speech.get("name", "某官")
+            title = speech.get("title", "某官")
             content = speech.get("content", "（沉默）")
             if content == SILENT_TOKEN:
                 content = "（沉默）"
-            lines.append(f"  {name}：{content}")
+            lines.append(f"  {title}：{content}")
 
     settings = context.settings
     style_hint = (
         "尽量使用文言文" if settings.get("style") == "classical"
-        else "语言清晰，文白夹杂即可"
+        else "用现代白话文，语言清晰简洁，像在做会议总结"
     )
     lines.append(f"\n请以丞相身份归纳总结，{style_hint}，不超过 300 字。")
 
@@ -273,8 +263,13 @@ async def _speak_with_same_round(
     round_num: int,
     same_round_speeches: list[dict],
     user_key,
+    streamer: DebateStreamer | None = None,
 ) -> str:
-    """顺序发言辅助函数：传入同轮已发言，让官员能看到本轮前面的发言内容"""
+    """顺序发言辅助函数：传入同轮已发言，让官员能看到本轮前面的发言内容。
+    如果传入 streamer，则边收 token 边推送流式输出。
+
+    容错：即使 LLM 调用出错（如偶发 JSON 解析错误），也不会中断整个辩论。
+    已收到的部分内容会保留；如果完全没有内容则返回 SILENT。"""
     from agents.prompt_builder import build_messages
     from llm.fallback import chat_with_fallback
 
@@ -286,13 +281,28 @@ async def _speak_with_same_round(
     )
 
     full_content = ""
-    async for token in chat_with_fallback(
-        messages,
-        user_key=user_key,
-        stream=True,
-        temperature=0.95,   # 提高多样性
-    ):
-        full_content += token
+    try:
+        async for token in chat_with_fallback(
+            messages,
+            user_key=user_key,
+            stream=True,
+            temperature=0.95,   # 提高多样性
+        ):
+            full_content += token
+            # 流式推送每个 token
+            if streamer:
+                try:
+                    await streamer.send_official_speech_token(
+                        official.id, official.title, official.rank, round_num, token
+                    )
+                except Exception:
+                    pass  # WebSocket 断开时不中断 LLM 调用
+    except Exception as exc:
+        logger.warning(
+            "官员 %s (%s) 发言 LLM 调用异常: %s，已获得部分内容 %d 字",
+            official.id, official.title, exc, len(full_content),
+        )
+        # 不抛出，使用已有的部分内容或回退为 SILENT
 
     full_content = full_content.strip()
     return full_content if full_content else "SILENT"

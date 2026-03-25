@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useCustomOfficialsStore } from '../store/customOfficialsStore';
+import { useOfficialsStore } from '../store/officialsStore';
 
 interface Props {
   onClose: () => void;
@@ -20,12 +20,22 @@ const INITIAL_FORM: FormValues = {
 };
 
 export function AppointOfficialPanel({ onClose }: Props) {
-  const { customOfficials, addCustomOfficial } = useCustomOfficialsStore();
+  const { officials, addCustomOfficial, restorePresets } = useOfficialsStore();
+  const customCount = officials.filter((o) => !o.isDefault).length;
+
   const [form, setForm] = useState<FormValues>(INITIAL_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [restoring, setRestoring] = useState(false);
 
-  const isFull = customOfficials.length >= 5;
+  const isFull = customCount >= 5;
+
+  // 检查是否有预设官员被撤职（即可以恢复）
+  const hasRemovedPresets = (() => {
+    const presetIds = ['hubu', 'bingbu', 'libu', 'gongbu', 'yushi', 'hanlin', 'chancellor'];
+    const currentIds = new Set(officials.map((o) => o.id));
+    return presetIds.some((id) => !currentIds.has(id));
+  })();
 
   function validate(): boolean {
     const errs: Partial<Record<keyof FormValues, string>> = {};
@@ -61,6 +71,15 @@ export function AppointOfficialPanel({ onClose }: Props) {
     }
   }
 
+  async function handleRestore() {
+    setRestoring(true);
+    try {
+      await restorePresets();
+    } finally {
+      setRestoring(false);
+    }
+  }
+
   function handleOverlayClick(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onClose();
   }
@@ -75,6 +94,18 @@ export function AppointOfficialPanel({ onClose }: Props) {
             ✕
           </button>
         </div>
+
+        {/* 恢复预设按钮（有被撤的预设时显示） */}
+        {hasRemovedPresets && (
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm appoint-panel__restore"
+            onClick={handleRestore}
+            disabled={restoring}
+          >
+            {restoring ? '恢复中…' : '↩ 恢复预设官员'}
+          </button>
+        )}
 
         {/* 表单 */}
         <form className="appoint-panel__form" onSubmit={handleSubmit} noValidate>

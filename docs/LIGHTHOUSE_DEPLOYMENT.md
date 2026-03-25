@@ -2,57 +2,46 @@
 
 本指南描述如何使用 Tencent Lighthouse 接口部署 CourtSimulator 到腾讯云服务器。
 
+> **核心原则：Git 与服务器更新无关。** 服务器上不使用 git，代码通过 Lighthouse `deploy_project_preparation` 接口从本地上传。
+
 ## 前置条件
 
 1. **Tencent Lighthouse 实例已创建**
-   - 实例 ID：需从 Lighthouse 控制台获取
-   - 系统：Ubuntu 20.04 LTS 或更高版本
+   - 实例 ID：`lhins-5xyrg0ei`
+   - 地域：`ap-beijing`
+   - 公网 IP：`62.234.18.113`
+   - 系统：OpenCloudOS (Linux)
    - 已安装 Docker 和 Docker Compose
 
-2. **Lighthouse 接口配置**
-   - 确保 CodeBuddy 中已连接 Lighthouse 集成
-   - 获取 API Token 和实例信息
+2. **CodeBuddy Lighthouse 集成已连接**
 
-## 部署流程
+3. **服务器上已有 `backend/.env`（首次部署时手动创建，后续不需要重复）**
 
-### 方式一：使用 Lighthouse RunCommand 接口（推荐）
+## 更新部署流程（3 步）
 
-#### 1. 准备部署环境
+### 第 1 步：上传项目文件
 
-首先确保后端的 `.env` 文件已准备好。参考 `backend/.env.example`：
+通过 Lighthouse `deploy_project_preparation` 接口将本地项目目录上传到服务器：
 
-```bash
-# backend/.env 示例
-OPENAI_API_KEY=sk-xxxxxxxxxxxx
-OPENAI_BASE_URL=https://api.openai.com/v1
-```
+- **本地路径**：`i:\AIGameTest\CourtSimulator`
+- **服务器目标**：`/root/CourtSimulator`
+- **项目名称**：`CourtSimulator`
 
-#### 2. 通过 CodeBuddy Lighthouse 集成部署
+### 第 2 步：执行部署脚本
 
-在 CodeBuddy IDE 中：
-
-1. 点击右上角菜单 → **集成** → **Lighthouse**
-2. 选择目标实例（或输入实例 ID）
-3. 执行部署命令：
+通过 Lighthouse `execute_command` 接口在服务器上执行：
 
 ```bash
-bash /root/CourtSimulator/deploy.sh
+cd /root/CourtSimulator && bash deploy.sh
 ```
 
-或者分步骤手动部署：
+`deploy.sh` 会自动：
+- 检查 Docker 环境（不存在则安装）
+- 验证 `backend/.env` 配置
+- 停止旧容器 → 重新构建镜像 → 启动新容器
+- 验证服务健康状态
 
-```bash
-# 拉取代码
-cd /root && git clone https://github.com/JimyTD/CourtSimulator.git
-
-# 或更新已有代码
-cd /root/CourtSimulator && git pull origin main
-
-# 构建并启动
-docker compose -f docker-compose.yml up -d --build
-```
-
-#### 3. 验证部署
+### 第 3 步：验证部署
 
 部署完成后，访问：
 
@@ -65,21 +54,6 @@ http://62.234.18.113:9000
 ```bash
 curl -f http://localhost:9000/health
 ```
-
-### 方式二：使用部署脚本（自动化）
-
-服务器上执行一键部署脚本：
-
-```bash
-bash /root/CourtSimulator/deploy.sh
-```
-
-该脚本会自动：
-- 检查 Docker 环境（不存在则安装）
-- 拉取/更新代码
-- 验证 `.env` 配置
-- 构建并启动所有容器
-- 验证服务健康状态
 
 ## 服务架构
 
@@ -194,6 +168,82 @@ LOG_LEVEL=INFO
 docker compose restart backend
 ```
 
+## 已知问题与经验
+
+### 1. Windows CRLF 导致脚本执行失败
+
+**症状**：服务器上执行 `bash deploy.sh` 报错 `\r: command not found` 或 `syntax error`。
+
+**原因**：在 Windows 上编辑的 `.sh` 文件使用 `\r\n`（CRLF）换行符，Linux 无法识别 `\r`。
+
+**解决**：在服务器上执行部署脚本前，先转换换行符：
+
+```bash
+dos2unix /root/CourtSimulator/deploy.sh
+```
+
+如果 `dos2unix` 不存在，用 `sed` 替代：
+
+```bash
+sed -i 's/\r$//' /root/CourtSimulator/deploy.sh
+```
+
+> **预防**：`deploy_project_preparation` 上传文件后，养成先执行 `dos2unix` 的习惯。
+
+### 2. `--no-cache` 构建超时（低配服务器）
+
+**症状**：`execute_command` 调用 `bash deploy.sh` 超时无返回，但服务器上构建仍在进行。
+
+**原因**：`deploy.sh` 中 `docker compose build --no-cache` 在低配服务器（如 2G 内存）上耗时较长（5-10 分钟），超过了 Lighthouse `execute_command` 的超时限制。
+
+**解决**：使用 `nohup` 后台执行，配合日志轮询检查进度：
+
+```bash
+# 后台执行部署脚本，输出重定向到日志文件
+nohup bash /root/CourtSimulator/deploy.sh > /tmp/court-deploy.log 2>&1 &
+```
+
+然后定期查看日志确认进度：
+
+```bash
+tail -50 /tmp/court-deploy.log
+```
+
+看到 `✅ 部署成功！` 或 `docker compose up -d` 完成即表示部署结束。
+
+> **提示**：如果不是首次部署且改动较小，可以去掉 `--no-cache` 参数利用 Docker 缓存加速构建。将 `deploy.sh` 中的 `docker compose build --no-cache` 改为 `docker compose build` 即可。
+
+### 3. Docker Named Volume 导致前端产物未更新
+
+**症状**：部署完成、容器正常运行，但浏览器访问看到的仍是旧版前端（清缓存也无效）。
+
+**原因**：`docker-compose.yml` 中 `frontend-dist` 是 Docker named volume。`docker compose down` **不会删除 named volume**，导致旧的前端构建产物一直保留在卷中。即使 `frontend-builder` 重新构建，如果 Vite 生成了不同 hash 的文件名，Nginx 仍可能读到旧的 `index.html` 指向旧文件。
+
+**解决**：停止容器时加 `-v` 参数删除卷：
+
+```bash
+docker compose down --remove-orphans -v
+```
+
+> `deploy.sh` 已包含此参数，正常使用部署脚本即可。
+
+### 4. 完整的部署命令序列（推荐）
+
+综合以上经验，通过 Lighthouse 接口执行的完整命令序列为：
+
+```bash
+# 1. 修复 CRLF
+dos2unix /root/CourtSimulator/deploy.sh
+
+# 2. 后台执行（避免超时）
+nohup bash /root/CourtSimulator/deploy.sh > /tmp/court-deploy.log 2>&1 &
+
+# 3. 等待后查看日志
+sleep 5 && tail -50 /tmp/court-deploy.log
+```
+
+---
+
 ## 故障排查
 
 ### 服务无法访问（http://62.234.18.113:9000）
@@ -255,15 +305,12 @@ docker compose restart backend
 
 ### 更新代码
 
-在服务器上执行：
+按照上面的 **更新部署流程（3 步）** 操作即可：
+1. `deploy_project_preparation` 上传最新代码
+2. `execute_command` 执行 `bash deploy.sh`
+3. 验证服务
 
-```bash
-cd /root/CourtSimulator
-git pull origin main
-docker compose down --remove-orphans
-docker compose build --no-cache
-docker compose up -d
-```
+**禁止在服务器上使用 git clone / git pull，代码只通过 Lighthouse 接口上传。**
 
 ### 备份数据
 

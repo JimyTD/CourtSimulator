@@ -14,6 +14,8 @@ services:
       - ./backend/.env
     environment:
       - PYTHONUNBUFFERED=1
+    volumes:
+      - ./shared:/shared:ro
     expose:
       - "8000"
     networks:

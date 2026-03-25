@@ -1,43 +1,18 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useDebateStore } from '../store/debateStore';
 import { useHistoryStore } from '../store/historyStore';
+import { useOfficialsStore } from '../store/officialsStore';
 import type { DebateRecord } from '../store/historyStore';
-import type { Settings, Official } from '../types';
+import type { Settings, Official, OfficialState } from '../types';
 
 // ============================================================
-// Mock 数据 —— 后端就绪后替换为真实 WebSocket
+// 构建 WebSocket URL（通过 nginx 代理，自动适配 http/https）
 // ============================================================
 
-const MOCK_OFFICIALS: Official[] = [
-  { id: 'hubu', name: '户部尚书', title: '掌管天下钱粮', rank: 2, faction: 'conservative', isDefault: true },
-  { id: 'bingbu', name: '兵部尚书', title: '掌管天下兵马', rank: 2, faction: 'hawk', isDefault: true },
-  { id: 'libu', name: '礼部尚书', title: '掌管礼仪典章', rank: 2, faction: 'traditionalist', isDefault: true },
-  { id: 'gongbu', name: '工部尚书', title: '掌管工程营造', rank: 2, faction: 'pragmatist', isDefault: true },
-  { id: 'yushi', name: '御史大夫', title: '监察百官', rank: 3, faction: 'censor', isDefault: true },
-  { id: 'hanlin', name: '清流翰林', title: '翰林院学士', rank: 4, faction: 'idealist', isDefault: true },
-  { id: 'chancellor', name: '内阁首辅', title: '百官之首', rank: 1, faction: 'neutral', isDefault: true, isChancellor: true },
-];
-
-const MOCK_SPEECHES: Record<string, string> = {
-  hubu: '臣以为，此议耗费甚巨，国库眼下余银不足三百万两，若强行推行，恐致府库空虚，来年赈灾无以为继。且民力已竭，再加征税赋，恐生变乱。臣斗胆谏阻，望陛下三思。',
-  bingbu: '陛下，强兵乃强国之本！边患未靖，若不以雷霆之势震慑宵小，他日必养虎为患。臣主张即刻发兵，一举荡平，扬我大明天威，令四方宾服！区区钱粮，岂能阻我王师！',
-  libu: '礼制乃社稷之根本。查历朝史册，祖宗成法素有定制，贸然更张，恐动摇社稷根基。孔子曰：「名不正则言不顺」。臣以为，此事须循旧例，不可轻举妄动。',
-  gongbu: '臣就工程层面言之：依现有物料与役夫，工期约需两载，所需木料约万方，铁料约五千斤，另需工匠三百名。可行，但需提前备料。若陛下有意，臣可详呈预算明细。',
-  yushi: '臣察此议有数处不妥：其一，程序未依典章，未经廷议；其二，地方官员恐中饱私囊，需严加监察；其三，时机尚未成熟，贸然施行必生弊端。臣弹劾主议诸臣失察之责！',
-  hanlin: '子曰：「仁者爱人」。圣人之道，在于以民为本。此议若利于万民，自当推行；若劳民伤财，则有悖仁政。臣请陛下以苍生为念，广开言路，听民之声，方为仁君之道。',
-};
-
-const MOCK_SPEECHES_ROUND2: Record<string, string> = {
-  hubu: '兵部尚书所言，臣不敢苟同。打仗打的是粮草，兵马未动，粮草先行。国库空虚之时，纵有百万雄兵，又能支撑几月？臣坚持，财政稳固方为根本。',
-  bingbu: '户部尚书此言差矣！屡屡以银两为由推诿，难道要坐等外患坐大？昔汉武帝倾尽国库击匈奴，方换百年太平，此乃千古明鉴！',
-  libu: '两位大人皆有道理，然礼制所在，切不可废。臣以为须先呈明礼仪程序，方可议事。',
-  gongbu: '两轮争论下来，技术层面无甚变化。臣补充一点：若要加急，工期可压缩至一载半，但成本需增三成。',
-  yushi: '（品级悬殊，御史大夫沉默以对）',
-  hanlin: '听诸位奏对，臣深感忧虑。无论何种方略，请陛下莫忘苍生疾苦，以仁义为先。',
-};
-
-function delay(ms: number) {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+function buildWsUrl(debateId: string): string {
+  const loc = window.location;
+  const protocol = loc.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${loc.host}/ws/debate/${debateId}`;
 }
 
 // ============================================================
@@ -48,96 +23,9 @@ export function useDebate() {
   const store = useDebateStore();
   const historyStore = useHistoryStore();
   const wsRef = useRef<WebSocket | null>(null);
-  const mockRunningRef = useRef(false);
-
-  // 获取可参与辩论的官员（排除丞相，丞相只做总结）
-  const getActiveOfficials = (selectedIds: string[]) =>
-    MOCK_OFFICIALS.filter((o) => !o.isChancellor && selectedIds.includes(o.id));
 
   // ----------------------------------------------------------
-  // Mock 辩论流程（仅前端演示，后端就绪后删除此函数）
-  // ----------------------------------------------------------
-  const runMockDebate = useCallback(
-    async (topic: string, settings: Settings) => {
-      if (mockRunningRef.current) return;
-      mockRunningRef.current = true;
-
-      const selectedOfficials = getActiveOfficials(settings.selectedOfficials);
-      const totalRounds = settings.rounds;
-      const debateId = `mock-${Date.now()}`;
-
-      // 初始化 store
-      const officialStates = [
-        ...selectedOfficials,
-        ...MOCK_OFFICIALS.filter((o) => o.isChancellor && settings.selectedOfficials.includes(o.id)),
-      ].map((o) => ({ official: o, status: 'waiting' as const, speeches: [] }));
-
-      store.startDebate(debateId, topic, totalRounds, officialStates);
-
-      for (let round = 1; round <= totalRounds; round++) {
-        store.setRound(round);
-        await delay(800);
-
-        const speechMap = round === 1 ? MOCK_SPEECHES : MOCK_SPEECHES_ROUND2;
-
-        for (const official of selectedOfficials) {
-          store.setOfficialThinking(official.id);
-          await delay(600 + Math.random() * 400);
-
-          // 高品级差距时模拟沉默（第二轮御史大夫）
-          if (round === 2 && official.id === 'yushi') {
-            store.setOfficialSilent(official.id);
-          } else {
-            const content = speechMap[official.id] ?? '臣暂无奏。';
-            store.setOfficialSpeech(official.id, round, content);
-          }
-
-          await delay(300);
-        }
-
-        await delay(1000);
-      }
-
-      // 丞相总结
-      await delay(1200);
-      store.setChancellorSummary(
-        '综各位所奏，争议焦点有三：其一，财政能否支撑；其二，军事威慑之必要；其三，礼制程序之合规。户部主稳，兵部主进，礼部主循旧，工部言可行。御史大夫有所顾虑，清流翰林以仁义为念。各方皆有其理，请陛下圣裁。'
-      );
-
-      await delay(500);
-      store.completeDebate();
-
-      // 保存本次朝会到历史记录
-      const finalState = useDebateStore.getState();
-      const speeches: DebateRecord['speeches'] = [];
-      Object.values(finalState.officials).forEach((os) => {
-        os.speeches.forEach((s) => {
-          speeches.push({
-            round: s.round,
-            officialId: os.official.id,
-            officialTitle: os.official.title,
-            content: s.content,
-          });
-        });
-      });
-      const record: DebateRecord = {
-        id: debateId,
-        topic,
-        createdAt: Date.now(),
-        rounds: totalRounds,
-        officials: Object.values(finalState.officials).map((os) => os.official.title),
-        speeches,
-        chancellorSummary: finalState.chancellorSummary,
-      };
-      void historyStore.saveRecord(record);
-
-      mockRunningRef.current = false;
-    },
-    [store, historyStore]
-  );
-
-  // ----------------------------------------------------------
-  // 真实 WebSocket（后端就绪后启用）
+  // WebSocket 连接
   // ----------------------------------------------------------
   const connectWs = useCallback(
     (debateId: string) => {
@@ -145,7 +33,7 @@ export function useDebate() {
         wsRef.current.close();
       }
 
-      const ws = new WebSocket(`ws://localhost:8000/ws/debate/${debateId}`);
+      const ws = new WebSocket(buildWsUrl(debateId));
       wsRef.current = ws;
 
       ws.onmessage = (event) => {
@@ -160,6 +48,12 @@ export function useDebate() {
               break;
             case 'official_speech':
               store.setOfficialSpeech(msg.official, msg.round, msg.content);
+              break;
+            case 'official_speech_token':
+              store.appendOfficialToken(msg.official, msg.round, msg.token);
+              break;
+            case 'official_speech_done':
+              store.finishOfficialSpeech(msg.official, msg.round, msg.content);
               break;
             case 'official_silent':
               store.setOfficialSilent(msg.official);
@@ -223,41 +117,87 @@ export function useDebate() {
   }, []);
 
   // ----------------------------------------------------------
-  // 发起朝会（当前使用 Mock；后端就绪后切换为 HTTP + WS）
+  // 发起朝会（真实 API 模式）
   // ----------------------------------------------------------
   const startDebate = useCallback(
     async (topic: string, settings: Settings) => {
       store.resetDebate();
 
-      // TODO: 后端就绪后替换为以下逻辑：
-      // import { useCustomOfficialsStore } from '../store/customOfficialsStore';
-      // const customOfficials = useCustomOfficialsStore.getState().customOfficials;
-      // const res = await fetch('/api/debate/start', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     topic,
-      //     officials: settings.selectedOfficials,
-      //     rounds: settings.rounds,
-      //     settings: { length: settings.length, style: settings.style },
-      //     userKey: settings.userKey,
-      //     custom_officials: customOfficials
-      //       .filter(o => settings.selectedOfficials.includes(o.id))
-      //       .map(o => ({ id: o.id, name: o.name, title: o.title, rank: o.rank, personality: o.personality })),
-      //   }),
-      // });
-      // const { debate_id } = await res.json();
-      // connectWs(debate_id);
+      // 确保官员列表已从 IndexedDB 加载
+      await useOfficialsStore.getState().loadOfficials();
 
-      // 目前使用 Mock
-      void runMockDebate(topic, settings);
+      // 从统一 store 获取已选中的官员
+      const storeOfficials = useOfficialsStore.getState().officials;
+      const allOfficials: Official[] = storeOfficials
+        .filter((o) => settings.selectedOfficials.includes(o.id))
+        .map((o) => ({
+          id: o.id,
+          name: o.name,
+          title: o.title,
+          rank: o.rank,
+          isDefault: o.isDefault,
+          isChancellor: o.isChancellor,
+          personality: o.personality,
+        }));
+
+      // 提取自定义官员（发给后端 custom_officials 字段）
+      const customSelected = allOfficials.filter((o) => !o.isDefault);
+
+      // 初始化 store（先展示"恭候中"状态）
+      const officialStates: OfficialState[] = allOfficials.map((o) => ({
+        official: o,
+        status: 'waiting',
+        speeches: [],
+      }));
+      store.startDebate('pending', topic, settings.rounds, officialStates);
+
+      // 调用后端 API
+      try {
+        const res = await fetch('/api/debate/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            topic,
+            officials: settings.selectedOfficials,
+            rounds: settings.rounds,
+            settings: { length: settings.length, style: settings.style },
+            userKey: settings.userKey,
+            custom_officials: customSelected.map((o) => ({
+              id: o.id,
+              name: o.name,
+              title: o.title,
+              rank: o.rank,
+              personality: o.personality ?? '',
+            })),
+          }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail?.message || `API 错误 (${res.status})`);
+        }
+
+        const { debate_id } = await res.json();
+
+        // 更新 store 中的 debateId
+        useDebateStore.setState({ debateId: debate_id });
+
+        // 连接 WebSocket 接收辩论过程
+        connectWs(debate_id);
+      } catch (err) {
+        console.error('[startDebate] API 调用失败:', err);
+        // API 失败时重置状态，让用户可以重试
+        store.resetDebate();
+        // 将错误抛出，让调用者处理（可选）
+        throw err;
+      }
     },
-    [store, runMockDebate]
+    [store, connectWs]
   );
 
   return {
     startDebate,
-    connectWs, // 后端就绪后使用
+    connectWs,
     debateState: store,
   };
 }

@@ -6,7 +6,6 @@
       "title": "户部尚书",
       "rank": 2,
       "avatar": "hubu.png",
-      "faction": "财政保守派",
       "isDefault": true,
       "isChancellor": false
     },
@@ -16,7 +15,6 @@
       "title": "兵部尚书",
       "rank": 2,
       "avatar": "bingbu.png",
-      "faction": "鹰派强硬派",
       "isDefault": true,
       "isChancellor": false
     },
@@ -26,7 +24,6 @@
       "title": "礼部尚书",
       "rank": 2,
       "avatar": "libu.png",
-      "faction": "祖制保守派",
       "isDefault": true,
       "isChancellor": false
     },
@@ -36,7 +33,6 @@
       "title": "工部尚书",
       "rank": 2,
       "avatar": "gongbu.png",
-      "faction": "技术实用派",
       "isDefault": true,
       "isChancellor": false
     },
@@ -46,7 +42,6 @@
       "title": "都察院左都御史",
       "rank": 3,
       "avatar": "yushi.png",
-      "faction": "监察纠劾派",
       "isDefault": true,
       "isChancellor": false
     },
@@ -56,7 +51,6 @@
       "title": "翰林院掌院学士",
       "rank": 4,
       "avatar": "hanlin.png",
-      "faction": "道德理想派",
       "isDefault": true,
       "isChancellor": false
     },
@@ -66,7 +60,6 @@
       "title": "内阁首辅",
       "rank": 1,
       "avatar": "chancellor.png",
-      "faction": "内阁中立派",
       "isDefault": true,
       "isChancellor": true
     }

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { OfficialCard } from './OfficialCard';
+import { OfficialSidebar } from './OfficialSidebar';
+import { DebateTimeline } from './DebateTimeline';
 import { EmperorInput } from './EmperorInput';
 import { ImperialDecree } from './ImperialDecree';
-import { ChancellorSummary } from './ChancellorSummary';
 import { SettingsPanel } from './SettingsPanel';
 import { HistoryPanel } from './HistoryPanel';
 import { useDebate } from '../hooks/useDebate';
@@ -20,6 +20,7 @@ export function CourtRoom() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [decree, setDecree] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   // 初始化时加载历史记录
   useEffect(() => {
@@ -28,18 +29,20 @@ export function CourtRoom() {
 
   const isRunning = debateState.status === 'running';
   const isComplete = debateState.status === 'complete';
+  const hasOfficials = Object.keys(debateState.officials).length > 0;
 
-  // 官员列表（按品级排序，丞相排最后）
-  const officialEntries = Object.values(debateState.officials).sort((a, b) => {
-    if (a.official.isChancellor) return 1;
-    if (b.official.isChancellor) return -1;
-    return a.official.rank - b.official.rank;
-  });
+  // 包裹 startDebate 以捕获 API 错误
+  const handleStartDebate = async (topic: string) => {
+    setApiError(null);
+    try {
+      await startDebate(topic, settings);
+    } catch (err: any) {
+      setApiError(err?.message || '朝会发起失败，请稍后重试');
+    }
+  };
 
-  // 非丞相官员（展示在主区域）
-  const mainOfficials = officialEntries.filter((o) => !o.official.isChancellor);
-  // 丞相（如果存在，在总结区单独展示）
-  const chancellor = officialEntries.find((o) => o.official.isChancellor);
+  // 官员列表（用于侧栏）
+  const officialEntries = Object.values(debateState.officials);
 
   function handleDecree(text: string) {
     setDecree(text);
@@ -89,43 +92,50 @@ export function CourtRoom() {
       {debateState.status === 'idle' && (
         <div className="court-room__input-area">
           <EmperorInput
-            onSubmit={(topic) => startDebate(topic, settings)}
+            onSubmit={(topic) => void handleStartDebate(topic)}
             disabled={isRunning}
           />
+          {apiError && (
+            <div className="court-room__api-error">
+              ⚠️ {apiError}
+            </div>
+          )}
         </div>
       )}
 
-      {/* ── 朝堂主区域 ── */}
-      {officialEntries.length > 0 && (
+      {/* ── 朝堂主区域：侧栏 + 时间线 ── */}
+      {hasOfficials && (
         <main className="court-room__main">
-          <div className="court-room__officials-grid">
-            {mainOfficials.map((os) => (
-              <OfficialCard
-                key={os.official.id}
-                officialState={os}
-                typingSpeed={settings.typingSpeed}
-              />
-            ))}
+          {/* 侧栏：桌面端显示 */}
+          <OfficialSidebar officials={officialEntries} />
+
+          {/* 手机端：顶部横向滚动栏 */}
+          <div className="court-room__mobile-bar">
+            {officialEntries
+              .sort((a, b) => {
+                if (a.official.isChancellor) return 1;
+                if (b.official.isChancellor) return -1;
+                return a.official.rank - b.official.rank;
+              })
+              .map((os) => (
+                <span
+                  key={os.official.id}
+                  className={`mobile-bar__chip mobile-bar__chip--${os.status}`}
+                  title={os.official.title}
+                >
+                  {os.official.title.slice(0, 2)}
+                </span>
+              ))}
           </div>
 
-          {/* 丞相独占一行（若参与） */}
-          {chancellor && (
-            <div className="court-room__chancellor-row">
-              <OfficialCard
-                officialState={chancellor}
-                typingSpeed={settings.typingSpeed}
-              />
-            </div>
-          )}
+          {/* 时间线 */}
+          <DebateTimeline
+            timeline={debateState.timeline}
+            chancellorSummary={debateState.chancellorSummary}
+            isComplete={isComplete}
+            typingSpeed={settings.typingSpeed}
+          />
         </main>
-      )}
-
-      {/* ── 丞相总结 ── */}
-      {(debateState.chancellorSummary || isComplete) && (
-        <ChancellorSummary
-          content={debateState.chancellorSummary}
-          typingSpeed={settings.typingSpeed}
-        />
       )}
 
       {/* ── 皇帝御批 ── */}
@@ -150,7 +160,7 @@ export function CourtRoom() {
         </div>
       )}
 
-      {/* ── 运行中：显示再次输入按钮 ── */}
+      {/* ── 页脚 ── */}
       {(isRunning || isComplete) && !decree && (
         <div className="court-room__footer">
           {isComplete && (

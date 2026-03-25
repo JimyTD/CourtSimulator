@@ -24,7 +24,15 @@ LENGTH_MAP = {
 
 # 文言程度映射
 STYLE_MAP = {
-    "modern": "请用现代白话文发言，说人话，不要用文言文、古文语气或古代称谓（如'臣''陛下''尔等'等），用正常现代中文口吻，带点职场感即可",
+    "modern": (
+        "【重要】你必须用现代白话文发言。具体要求：\n"
+        "- 禁止使用文言文词汇和句式（如'臣''陛下''尔等''甚矣''岂非''此乃''实乃''窃以为''依臣之见'等）\n"
+        "- 禁止使用古代称谓和敬语套话（如'启禀''奏请''微臣''下官''圣上'等）\n"
+        "- 用现代职场口吻说话，就像在开一个正式会议\n"
+        "- 可以用'我认为''我的看法是''这个方案'这样的现代表达\n"
+        "- 称呼其他人用职位名即可（如'户部那边''工部的意见'）\n"
+        "- 语气正式但不拘谨，像一个专业人士在做汇报"
+    ),
     "classical": "尽量使用文言文，词句典雅，引经据典，避免现代白话",
 }
 
@@ -48,7 +56,7 @@ def build_messages(
             {
                 "round": int,
                 "speeches": [
-                    {"official_id": str, "name": str, "rank": int, "content": str},
+                    {"official_id": str, "title": str, "rank": int, "content": str},
                     ...
                 ]
             }
@@ -58,7 +66,7 @@ def build_messages(
             "style":  "modern" | "classical",
         },
         "all_officials": [
-            {"id": str, "name": str, "rank": int},
+            {"id": str, "title": str, "rank": int},
             ...
         ],
     }
@@ -84,7 +92,7 @@ def _build_system(config: OfficialConfig, context: dict, round_num: int) -> str:
 
     # 1. 角色设定
     base_prompt = config.system_prompt or (
-        f"你是朝中{config.name}，{config.title}。{config.personality}"
+        f"你是朝中{config.title}。{config.personality}"
     )
     parts.append(base_prompt)
 
@@ -119,10 +127,10 @@ def _build_system(config: OfficialConfig, context: dict, round_num: int) -> str:
     # 7. 格式要求 + 禁止重复句式
     parts.append(
         "【格式要求】\n"
-        "- 直接输出奏对内容，不要加任何前缀（如"臣奏""启禀陛下"），不要用括号说明动作。\n"
+        "- 直接输出发言内容，不要加任何前缀套话，不要用括号说明动作。\n"
         "- 如选择沉默，只输出英文大写字母 SILENT，不加任何其他文字。\n"
-        "- 【禁止重复】不得以"臣以为""臣认为""臣以为此事""依臣之见"等套话开头，"
-        "也不得重复使用朝堂中其他官员已用过的开场句式。每位官员的发言开头必须独特，体现自身性格。"
+        "- 【禁止重复】不得重复使用朝堂中其他官员已用过的开场句式。"
+        "每位官员的发言开头必须独特，体现自身性格。"
     )
 
     return "\n\n".join(parts)
@@ -147,22 +155,22 @@ def _build_user(
             r = round_record.get("round", "?")
             parts.append(f"--- 第 {r} 轮 ---")
             for speech in round_record.get("speeches", []):
-                name = speech.get("name", "某官员")
+                title = speech.get("title", "某官员")
                 content = speech.get("content", "（沉默）")
                 if content == "SILENT":
                     content = "（沉默）"
-                parts.append(f"{name}：{content}")
+                parts.append(f"{title}：{content}")
         parts.append("")
 
     # 同轮已发言（若有）
     if same_round_speeches:
         parts.append("【本轮朝堂中已有官员先行奏对，内容如下】")
         for speech in same_round_speeches:
-            name = speech.get("name", "某官员")
+            title = speech.get("title", "某官员")
             content = speech.get("content", "（沉默）")
             if content == "SILENT":
                 content = "（沉默）"
-            parts.append(f"{name}：{content}")
+            parts.append(f"{title}：{content}")
         parts.append("（以上为本轮他人发言，请勿重复相同观点或句式）")
         parts.append("")
 
@@ -204,13 +212,13 @@ def _build_rank_context(config: OfficialConfig, context: dict) -> str:
         if off.get("id") == config.id:
             continue
         other_rank = off.get("rank", 5)
-        name = off.get("name", "某官")
+        label = off.get("title", "某官")
         if other_rank < my_rank:
-            higher.append(f"{name}（{other_rank}品）")
+            higher.append(f"{label}（{other_rank}品）")
         elif other_rank == my_rank:
-            same.append(f"{name}（{other_rank}品）")
+            same.append(f"{label}（{other_rank}品）")
         else:
-            lower.append(f"{name}（{other_rank}品）")
+            lower.append(f"{label}（{other_rank}品）")
 
     lines = [f"【品级关系】你是{my_rank}品官员。当前朝堂中："]
     if higher:

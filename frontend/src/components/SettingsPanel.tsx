@@ -1,33 +1,54 @@
 import { useState, useEffect } from 'react';
 import type { Settings } from '../types';
 import uiText from '../data/ui-text.json';
-import officialsConfig from '../data/officials.json';
-import { useCustomOfficialsStore } from '../store/customOfficialsStore';
+import { useOfficialsStore } from '../store/officialsStore';
+import type { StoredOfficial } from '../store/officialsStore';
 import { AppointOfficialPanel } from './AppointOfficialPanel';
 
-// 官员详情弹窗（行内小组件）
-function OfficialDetail({ official, onClose }: { official: typeof ALL_OFFICIALS[0]; onClose: () => void }) {
+// ── 官员详情弹窗 ────────────────────────────────────────
+
+function OfficialDetail({
+  official,
+  onClose,
+}: {
+  official: StoredOfficial;
+  onClose: () => void;
+}) {
   return (
     <div className="official-detail-overlay" onClick={onClose}>
       <div className="official-detail" onClick={(e) => e.stopPropagation()}>
         <div className="official-detail__header">
           <span className="official-detail__rank">{official.rank}品</span>
           <span className="official-detail__title">{official.title}</span>
-          <button className="official-detail__close btn btn--ghost" onClick={onClose}>✕</button>
+          <button className="official-detail__close btn btn--ghost" onClick={onClose}>
+            ✕
+          </button>
         </div>
         <div className="official-detail__body">
+          {/* 姓名 */}
           <div className="official-detail__row">
             <span className="official-detail__label">姓名</span>
             <span className="official-detail__value">{official.name}</span>
           </div>
+          {/* 来源 */}
           <div className="official-detail__row">
-            <span className="official-detail__label">派系</span>
-            <span className="official-detail__value">{official.faction}</span>
+            <span className="official-detail__label">来源</span>
+            <span className="official-detail__value">
+              {official.isDefault ? '预设官员' : '自定义'}
+            </span>
           </div>
+          {/* 丞相特殊职责 */}
           {official.isChancellor && (
             <div className="official-detail__row">
               <span className="official-detail__label">特殊职责</span>
               <span className="official-detail__value">朝会结束后做总结陈词</span>
+            </div>
+          )}
+          {/* 性格描述（自定义官员） */}
+          {!official.isDefault && official.personality && (
+            <div className="official-detail__row">
+              <span className="official-detail__label">性格</span>
+              <span className="official-detail__value">{official.personality}</span>
             </div>
           )}
         </div>
@@ -36,27 +57,29 @@ function OfficialDetail({ official, onClose }: { official: typeof ALL_OFFICIALS[
   );
 }
 
+// ── SettingsPanel ───────────────────────────────────────
+
 interface Props {
   settings: Settings;
   onUpdate: (patch: Partial<Settings>) => void;
   onClose: () => void;
 }
 
-const ALL_OFFICIALS = Object.values(officialsConfig.officials);
-
 const PROVIDERS = ['deepseek', 'gemini', 'glm4', 'openai', 'custom'] as const;
 
 export function SettingsPanel({ settings, onUpdate, onClose }: Props) {
   const [aiExpanded, setAiExpanded] = useState(false);
-  const [detailOfficial, setDetailOfficial] = useState<typeof ALL_OFFICIALS[0] | null>(null);
+  const [detailOfficial, setDetailOfficial] = useState<StoredOfficial | null>(null);
   const [showAppoint, setShowAppoint] = useState(false);
 
-  const { customOfficials, loadCustomOfficials, removeCustomOfficial } = useCustomOfficialsStore();
+  const { officials, loaded, loadOfficials, removeOfficial } = useOfficialsStore();
 
-  // 加载 IndexedDB 中的自定义官员
+  // 加载 IndexedDB 中的所有官员
   useEffect(() => {
-    loadCustomOfficials();
-  }, []);
+    if (!loaded) {
+      loadOfficials();
+    }
+  }, [loaded, loadOfficials]);
 
   function toggleOfficial(id: string) {
     const current = settings.selectedOfficials;
@@ -64,6 +87,16 @@ export function SettingsPanel({ settings, onUpdate, onClose }: Props) {
       ? current.filter((x) => x !== id)
       : [...current, id];
     onUpdate({ selectedOfficials: next });
+  }
+
+  async function handleRemove(id: string) {
+    // 撤职：从列表删除 + 取消选中
+    await removeOfficial(id);
+    if (settings.selectedOfficials.includes(id)) {
+      onUpdate({
+        selectedOfficials: settings.selectedOfficials.filter((x) => x !== id),
+      });
+    }
   }
 
   function updateUserKey(patch: Partial<NonNullable<Settings['userKey']>>) {
@@ -78,6 +111,7 @@ export function SettingsPanel({ settings, onUpdate, onClose }: Props) {
     });
   }
 
+  const customCount = officials.filter((o) => !o.isDefault).length;
   const t = uiText.settings;
 
   return (
@@ -139,12 +173,11 @@ export function SettingsPanel({ settings, onUpdate, onClose }: Props) {
             </div>
           </section>
 
-          {/* 4. 参与官员 */}
+          {/* 4. 参与官员 — 统一列表 */}
           <section className="settings-section">
             <label className="settings-section__label">{t.officials.label}</label>
             <div className="settings-section__officials">
-              {/* 预置官员列表 */}
-              {ALL_OFFICIALS.map((o) => (
+              {officials.map((o) => (
                 <div key={o.id} className="official-checkbox">
                   <label className="official-checkbox__left">
                     <input
@@ -154,47 +187,35 @@ export function SettingsPanel({ settings, onUpdate, onClose }: Props) {
                     />
                     <span className="official-checkbox__rank">{o.rank}品</span>
                     <span className="official-checkbox__title">{o.title}</span>
+                    <span className="official-checkbox__name">· {o.name}</span>
                   </label>
-                  <button
-                    className="official-checkbox__detail btn btn--ghost btn--xs"
-                    onClick={() => setDetailOfficial(o)}
-                    type="button"
-                  >
-                    详情
-                  </button>
-                </div>
-              ))}
-
-              {/* 自定义官员列表（如有） */}
-              {customOfficials.map((o) => (
-                <div key={o.id} className="official-checkbox">
-                  <label className="official-checkbox__left">
-                    <input
-                      type="checkbox"
-                      checked={settings.selectedOfficials.includes(o.id)}
-                      onChange={() => toggleOfficial(o.id)}
-                    />
-                    <span className="official-checkbox__rank">{o.rank}品</span>
-                    <span className="official-checkbox__title">{o.title}</span>
-                  </label>
-                  <button
-                    className="btn btn--xs btn--ghost"
-                    onClick={() => removeCustomOfficial(o.id)}
-                    type="button"
-                  >
-                    撤职
-                  </button>
+                  <div className="official-checkbox__actions">
+                    <button
+                      className="official-checkbox__detail btn btn--ghost btn--xs"
+                      onClick={() => setDetailOfficial(o)}
+                      type="button"
+                    >
+                      详情
+                    </button>
+                    <button
+                      className="official-checkbox__dismiss btn btn--ghost btn--xs"
+                      onClick={() => handleRemove(o.id)}
+                      type="button"
+                    >
+                      撤职
+                    </button>
+                  </div>
                 </div>
               ))}
 
               {/* 封官按钮 */}
               <button
                 className="btn btn--secondary btn--sm"
-                disabled={customOfficials.length >= 5}
+                disabled={customCount >= 5}
                 onClick={() => setShowAppoint(true)}
                 type="button"
               >
-                {customOfficials.length >= 5 ? '已达上限（5/5）' : '＋ 封官'}
+                {customCount >= 5 ? '已达上限（5/5）' : '＋ 封官'}
               </button>
             </div>
           </section>

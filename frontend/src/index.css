@@ -225,31 +225,30 @@ body {
 /* ── 输入区 ── */
 .court-room__input-area {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   padding: var(--spacing-md) 0;
 }
 
-/* ── 官员网格 ── */
+.court-room__api-error {
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-md);
+  color: var(--color-vermilion);
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+}
+
+/* ── 主区域：侧栏 + 时间线 ── */
 .court-room__main {
   display: flex;
-  flex-direction: column;
   gap: var(--spacing-md);
+  min-height: 0;
+  flex: 1;
 }
 
-.court-room__officials-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: var(--spacing-md);
-}
-
-.court-room__chancellor-row {
-  display: flex;
-  justify-content: center;
-}
-
-.court-room__chancellor-row .official-card {
-  max-width: 480px;
-  width: 100%;
+/* 手机端横向滚动栏（桌面端隐藏） */
+.court-room__mobile-bar {
+  display: none;
 }
 
 /* ── 页脚 ── */
@@ -286,105 +285,189 @@ body {
 }
 
 /* =====================================================
-   OfficialCard — 官员卡片
+   OfficialSidebar — 侧栏官员状态列表
    ===================================================== */
-.official-card {
-  border: var(--border-ink);
-  background: var(--color-paper);
-  padding: var(--spacing-md);
-  box-shadow: var(--shadow-card);
-  transition: border-color 0.2s, box-shadow 0.2s;
-  min-height: 140px;
+.official-sidebar {
+  width: 72px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
-  position: relative;
-}
-
-/* 左侧品级色条 */
-.official-card::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--color-ink-faint);
-  transition: background 0.2s;
-}
-
-.official-card--thinking::before { background: var(--color-gold); }
-.official-card--speaking::before { background: var(--color-jade); }
-.official-card--done::before     { background: var(--color-ink-light); }
-.official-card--silent::before   { background: var(--color-paper-darker); }
-
-.official-card--thinking {
-  border-color: var(--color-gold);
-  box-shadow: 0 0 12px rgba(184, 134, 11, 0.15);
-}
-.official-card--speaking {
-  border-color: var(--color-jade);
-  box-shadow: 0 0 12px rgba(46, 125, 94, 0.15);
-}
-
-/* ── Header ── */
-.official-card__header {
-  display: flex;
-  align-items: baseline;
   gap: var(--spacing-xs);
-  border-bottom: var(--border-ink);
-  padding-bottom: var(--spacing-xs);
+  padding-top: var(--spacing-xs);
+  border-right: var(--border-ink);
+  overflow-y: auto;
 }
 
-.official-card__rank {
-  font-size: 0.7rem;
+.official-sidebar__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--spacing-xs) 2px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+  cursor: default;
+}
+
+.official-sidebar__item:hover {
+  background: var(--color-paper-dark);
+}
+
+.official-sidebar__icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.official-sidebar__name {
+  font-size: 0.6rem;
+  color: var(--color-ink-light);
+  letter-spacing: 0.04em;
+  text-align: center;
+  line-height: 1.2;
+  word-break: keep-all;
+}
+
+/* 状态高亮 */
+.official-sidebar__item--thinking { background: rgba(184, 134, 11, 0.08); }
+.official-sidebar__item--streaming { background: rgba(46, 125, 94, 0.08); }
+.official-sidebar__item--streaming .official-sidebar__name { color: var(--color-jade); font-weight: 500; }
+
+/* =====================================================
+   DebateTimeline — 时间线容器
+   ===================================================== */
+.debate-timeline {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: var(--spacing-sm) var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 220px);
+}
+
+.debate-timeline__messages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding-bottom: var(--spacing-lg);
+}
+
+/* =====================================================
+   TimelineBubble — 气泡样式（竹简风）
+   ===================================================== */
+
+/* 轮次分隔符 */
+.tl-round-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) 0;
+}
+
+.tl-round-divider__line {
+  flex: 1;
+  height: 1px;
+  background: var(--color-paper-darker);
+}
+
+.tl-round-divider__text {
+  font-size: 0.75rem;
+  color: var(--color-gold);
+  letter-spacing: 0.15em;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* 气泡通用 */
+.tl-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  max-width: 85%;
+  animation: tl-bubble-in 0.2s ease-out;
+}
+
+@keyframes tl-bubble-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 官职标签 */
+.tl-bubble__badge {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.tl-bubble__rank {
+  font-size: 0.65rem;
   color: var(--color-gray);
   border: 1px solid var(--color-paper-darker);
   padding: 0 4px;
-  letter-spacing: 0.05em;
   border-radius: var(--radius-sm);
-  flex-shrink: 0;
-}
-
-.official-card__name {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--color-ink);
-  letter-spacing: 0.05em;
-}
-
-.official-card__title {
-  font-size: 0.75rem;
-  color: var(--color-gray);
   letter-spacing: 0.04em;
 }
 
-/* ── Body ── */
-.official-card__body {
-  flex: 1;
-  display: flex;
-  align-items: flex-start;
+.tl-bubble__title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-ink);
+  letter-spacing: 0.06em;
 }
 
-.official-card__status-text {
-  font-size: 0.85rem;
-  letter-spacing: 0.08em;
+/* 气泡正文区（竹简样式） */
+.tl-bubble__body {
+  border: var(--border-ink);
+  border-left: 3px solid var(--color-ink-faint);
+  background: var(--color-paper);
+  padding: var(--spacing-sm) var(--spacing-md);
+  box-shadow: 1px 1px 4px rgba(26, 16, 8, 0.08);
+  position: relative;
 }
 
-.official-card__status-text--muted    { color: var(--color-paper-darker); }
-.official-card__status-text--thinking { color: var(--color-gold); }
-.official-card__status-text--silent   { color: var(--color-gray); font-style: italic; }
-
-.official-card__speech {
+/* 发言内容 */
+.tl-bubble__content {
   font-size: 0.88rem;
   line-height: 1.9;
   color: var(--color-ink);
   letter-spacing: 0.05em;
-  word-break: break-all;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 
-/* 光标闪烁 */
-.official-card__cursor {
+/* 状态变体 */
+.tl-bubble--thinking .tl-bubble__body {
+  border-left-color: var(--color-gold);
+  background: rgba(184, 134, 11, 0.04);
+}
+
+.tl-bubble--streaming .tl-bubble__body {
+  border-left-color: var(--color-jade);
+  box-shadow: 0 0 8px rgba(46, 125, 94, 0.1);
+}
+
+.tl-bubble--silent .tl-bubble__body {
+  border-left-color: var(--color-paper-darker);
+  background: var(--color-paper-dark);
+}
+
+/* thinking 省略号动画 */
+.tl-bubble__thinking-dots {
+  color: var(--color-gold);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+}
+
+/* silent 文字 */
+.tl-bubble__silent-text {
+  color: var(--color-gray);
+  font-style: italic;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+}
+
+/* 流式光标 */
+.tl-bubble__cursor {
   display: inline-block;
   color: var(--color-jade);
   font-weight: 300;
@@ -629,18 +712,56 @@ body {
   letter-spacing: 0.05em;
 }
 
-.official-checkbox__name {
-  font-size: 0.88rem;
-  color: var(--color-ink);
-  letter-spacing: 0.05em;
-}
-
 .official-checkbox__detail {
   font-size: 0.75rem;
   color: var(--color-gray);
   padding: 1px 6px;
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+.official-checkbox__name {
+  font-size: 0.78rem;
+  color: var(--color-gray);
+  letter-spacing: 0.03em;
+}
+
+.official-checkbox__actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.official-checkbox__dismiss {
+  font-size: 0.75rem;
+  color: var(--color-vermilion);
+  padding: 1px 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.official-checkbox__dismiss:hover {
+  opacity: 1;
+}
+
+/* 恢复预设按钮 */
+.appoint-panel__restore {
+  width: 100%;
+  text-align: center;
+  margin-bottom: var(--spacing-sm);
+  color: var(--color-gray);
+  border: 1px dashed var(--color-paper-darker);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-xs) 0;
+  font-size: 0.8rem;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.appoint-panel__restore:hover {
+  color: var(--color-vermilion);
+  border-color: var(--color-vermilion);
 }
 
 /* 官员详情弹窗 */
@@ -805,13 +926,86 @@ body {
 /* =====================================================
    响应式
    ===================================================== */
+
+/* 手机端 */
 @media (max-width: 600px) {
-  .court-room__officials-grid {
-    grid-template-columns: 1fr 1fr;
+  #root {
+    padding: var(--spacing-sm);
+  }
+
+  .court-room__header {
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
   }
 
   .court-room__title {
     font-size: 1.2rem;
+  }
+
+  .court-room__subtitle {
+    display: none;
+  }
+
+  /* 侧栏隐藏 */
+  .official-sidebar {
+    display: none;
+  }
+
+  /* 手机端横向滚动栏显示 */
+  .court-room__mobile-bar {
+    display: flex !important;
+    gap: var(--spacing-xs);
+    overflow-x: auto;
+    padding: var(--spacing-xs) 0;
+    border-bottom: var(--border-ink);
+    flex-shrink: 0;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-bar__chip {
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border: var(--border-ink);
+    border-radius: var(--radius-sm);
+    color: var(--color-ink-light);
+    background: var(--color-paper);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+
+  .mobile-bar__chip--thinking {
+    border-color: var(--color-gold);
+    color: var(--color-gold);
+  }
+
+  .mobile-bar__chip--streaming {
+    border-color: var(--color-jade);
+    color: var(--color-jade);
+  }
+
+  .mobile-bar__chip--done {
+    color: var(--color-ink-faint);
+  }
+
+  .mobile-bar__chip--silent {
+    color: var(--color-paper-darker);
+  }
+
+  /* 主区域改为纵向（横滚栏 + 时间线） */
+  .court-room__main {
+    flex-direction: column;
+  }
+
+  /* 时间线高度自适应 */
+  .debate-timeline {
+    max-height: calc(100vh - 280px);
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+
+  /* 气泡更宽 */
+  .tl-bubble {
+    max-width: 95%;
   }
 
   .emperor-input__inner {
@@ -820,12 +1014,6 @@ body {
 
   .emperor-input__submit {
     width: 100%;
-  }
-}
-
-@media (max-width: 400px) {
-  .court-room__officials-grid {
-    grid-template-columns: 1fr;
   }
 }
 

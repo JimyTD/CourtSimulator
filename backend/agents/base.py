@@ -25,7 +25,6 @@ class OfficialConfig:
     personality: str = ""
     system_prompt: str = ""
     avatar: str = ""
-    faction: str = ""
     is_default: bool = True
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -50,6 +49,10 @@ class OfficialAgent:
     @property
     def name(self) -> str:
         return self.config.name
+
+    @property
+    def title(self) -> str:
+        return self.config.title
 
     @property
     def rank(self) -> int:

@@ -10,6 +10,7 @@ llm/fallback.py — Fallback 调用链
 """
 from __future__ import annotations
 
+import asyncio
 import os
 import logging
 from typing import AsyncIterator
@@ -77,31 +78,48 @@ async def chat_with_fallback(
         stream: 是否流式输出（默认 True）
         temperature: 采样温度
         max_tokens: 最大输出 token 数
+
+    对于偶发的 JSON 解析错误（DeepSeek SSE 偶尔返回格式异常），
+    同一 provider 会重试一次；重试仍失败则降级到下一个 provider。
     """
+    import json as _json
+
     candidates = _build_candidates(user_key)
 
     last_exc: Exception | None = None
     for label, client, model in candidates:
-        try:
-            logger.info("LLM 调用: %s / %s", label, model)
-            async for token in _stream_call(
-                client, model, messages, temperature, max_tokens
-            ):
-                yield token
-            return  # 成功，退出
-        except Exception as exc:
-            if _is_quota_error(exc):
-                logger.warning("LLM %s 触发降级: %s", label, exc)
-                last_exc = exc
-                continue  # 尝试下一个
-            else:
-                # 非配额错误直接抛出
-                raise
+        for attempt in range(1, _MAX_STREAM_RETRIES + 1):
+            try:
+                logger.info("LLM 调用: %s / %s (attempt %d)", label, model, attempt)
+                async for token in _stream_call(
+                    client, model, messages, temperature, max_tokens
+                ):
+                    yield token
+                return  # 成功，退出
+            except _json.JSONDecodeError as e:
+                # 偶发 JSON 解析错误：可能已 yield 了部分 token
+                # 但可以重试，调用侧应能处理部分内容
+                logger.warning(
+                    "LLM %s JSON 解析失败 (attempt %d/%d): %s",
+                    label, attempt, _MAX_STREAM_RETRIES, e,
+                )
+                last_exc = e
+                if attempt < _MAX_STREAM_RETRIES:
+                    await asyncio.sleep(0.5)
+                    continue
+                else:
+                    break  # 同一 provider 重试耗尽，尝试下一个
+            except Exception as exc:
+                if _is_quota_error(exc):
+                    logger.warning("LLM %s 触发降级: %s", label, exc)
+                    last_exc = exc
+                    break  # 尝试下一个 provider
+                else:
+                    # 非配额非 JSON 错误直接抛出
+                    raise
 
-    # 所有候选都失败
-    raise RuntimeError(
-        f"所有 LLM 提供商均不可用，最后一个错误: {last_exc}"
-    ) from last_exc
+    # 所有候选都失败 — 不抛异常，返回空（调用侧会处理为 SILENT）
+    logger.error("所有 LLM 提供商均不可用，最后一个错误: %s", last_exc)
 
 
 def _build_candidates(
@@ -147,6 +165,9 @@ def _build_candidates(
     return candidates
 
 
+_MAX_STREAM_RETRIES = 2  # 最多重试次数（偶发 JSON 解析错误）
+
+
 async def _stream_call(
     client: AsyncOpenAI,
     model: str,
@@ -154,7 +175,13 @@ async def _stream_call(
     temperature: float,
     max_tokens: int,
 ) -> AsyncIterator[str]:
-    """执行流式调用，yield 文本 token"""
+    """
+    执行流式调用，yield 文本 token。
+
+    注意：async generator 一旦 yield 了 token 就不能回滚重试。
+    因此 JSONDecodeError 重试逻辑在 chat_with_fallback 层处理，
+    此处只做单次流式调用。
+    """
     stream = await client.chat.completions.create(
         model=model,
         messages=messages,

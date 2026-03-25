@@ -71,11 +71,10 @@ def _parse_config(oid: str, data: dict) -> OfficialConfig:
         personality=data.get("personality", ""),
         system_prompt=data.get("systemPrompt", ""),
         avatar=data.get("avatar", ""),
-        faction=data.get("faction", ""),
         is_default=data.get("isDefault", True),
         extra={k: v for k, v in data.items() if k not in {
             "name", "title", "rank", "personality",
-            "systemPrompt", "avatar", "faction", "isDefault",
+            "systemPrompt", "avatar", "isDefault",
         }},
     )
 
@@ -95,7 +94,6 @@ def create_custom_agent(data) -> OfficialAgent:
         personality=data.personality,
         system_prompt="",  # 留空，由 prompt_builder 用 personality 生成
         avatar="",
-        faction="",
         is_default=False,
     )
     return OfficialAgent(config)

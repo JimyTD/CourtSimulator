@@ -144,7 +144,6 @@ async def get_officials():
             "name": cfg.name,
             "title": cfg.title,
             "rank": cfg.rank,
-            "faction": cfg.faction,
             "avatar": cfg.avatar,
             "isDefault": cfg.is_default,
         }
@@ -198,7 +197,6 @@ async def create_official(req: CreateOfficialRequest):
         "personality": req.personality,
         "systemPrompt": polished.strip(),
         "avatar": "",
-        "faction": "custom",
         "isDefault": False,
     }
 

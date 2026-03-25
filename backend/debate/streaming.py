@@ -56,18 +56,54 @@ class DebateStreamer:
             "round": round_num,
         })
 
-    async def send_official_thinking(self, official_id: str, name: str, round_num: int) -> None:
+    async def send_official_thinking(self, official_id: str, title: str, round_num: int) -> None:
         await self.send({
             "type": "official_thinking",
             "official": official_id,
-            "name": name,
+            "name": title,
             "round": round_num,
+        })
+
+    async def send_official_speech_token(
+        self,
+        official_id: str,
+        title: str,
+        rank: int,
+        round_num: int,
+        token: str,
+    ) -> None:
+        """推送单个流式 token（逐字输出）"""
+        await self.send({
+            "type": "official_speech_token",
+            "official": official_id,
+            "name": title,
+            "rank": rank,
+            "round": round_num,
+            "token": token,
+        })
+
+    async def send_official_speech_done(
+        self,
+        official_id: str,
+        title: str,
+        rank: int,
+        round_num: int,
+        content: str,
+    ) -> None:
+        """标记某官员本轮流式发言结束，附带完整文本"""
+        await self.send({
+            "type": "official_speech_done",
+            "official": official_id,
+            "name": title,
+            "rank": rank,
+            "round": round_num,
+            "content": content,
         })
 
     async def send_official_speech(
         self,
         official_id: str,
-        name: str,
+        title: str,
         rank: int,
         round_num: int,
         content: str,
@@ -75,17 +111,17 @@ class DebateStreamer:
         await self.send({
             "type": "official_speech",
             "official": official_id,
-            "name": name,
+            "name": title,
             "rank": rank,
             "round": round_num,
             "content": content,
         })
 
-    async def send_official_silent(self, official_id: str, name: str) -> None:
+    async def send_official_silent(self, official_id: str, title: str) -> None:
         await self.send({
             "type": "official_silent",
             "official": official_id,
-            "name": name,
+            "name": title,
             "display_text": "臣无奏",
         })
 
