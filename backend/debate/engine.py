@@ -52,6 +52,7 @@ class DebateConfig:
     })
     user_key: UserKey | None = None
     custom_officials: list = field(default_factory=list)  # CustomOfficialData 列表
+    web_search: bool = False  # 是否启用联网搜索（仅 GLM4 生效）
 
 
 @dataclass
@@ -175,6 +176,7 @@ class DebateEngine:
                 o, context.to_dict(), round_num,
                 same_round_so_far, self.config.user_key,
                 streamer=self.streamer,
+                web_search=self.config.web_search,
             )
 
             # 判断发言内容
@@ -268,6 +270,7 @@ async def _speak_with_same_round(
     same_round_speeches: list[dict],
     user_key,
     streamer: DebateStreamer | None = None,
+    web_search: bool = False,
 ) -> str:
     """顺序发言辅助函数：传入同轮已发言，让官员能看到本轮前面的发言内容。
     如果传入 streamer，则边收 token 边推送流式输出。
@@ -282,6 +285,7 @@ async def _speak_with_same_round(
         context_dict,
         round_num,
         same_round_speeches=same_round_speeches if same_round_speeches else None,
+        web_search=web_search,
     )
 
     full_content = ""
@@ -291,6 +295,7 @@ async def _speak_with_same_round(
             user_key=user_key,
             stream=True,
             temperature=0.95,   # 提高多样性
+            web_search=web_search,
         ):
             full_content += token
             # 流式推送每个 token

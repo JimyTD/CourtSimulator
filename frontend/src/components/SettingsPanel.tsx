@@ -236,7 +236,21 @@ export function SettingsPanel({ settings, onUpdate, onClose }: Props) {
             </div>
           </section>
 
-          {/* 6. AI 设置（折叠） */}
+          {/* 6. 联网搜索 */}
+          <section className="settings-section">
+            <div className="settings-section__toggle-row">
+              <label className="settings-section__label">{t.webSearch.label}</label>
+              <button
+                className={`btn btn--option ${settings.webSearch ? 'btn--option--active' : ''}`}
+                onClick={() => onUpdate({ webSearch: !settings.webSearch })}
+              >
+                {settings.webSearch ? '已开启' : '已关闭'}
+              </button>
+            </div>
+            <span className="settings-section__hint">{t.webSearch.description}</span>
+          </section>
+
+          {/* 7. AI 设置（折叠） */}
           <section className="settings-section">
             <button
               className="settings-section__collapse-toggle"

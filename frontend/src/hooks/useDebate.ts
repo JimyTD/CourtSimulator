@@ -162,6 +162,7 @@ export function useDebate() {
             rounds: settings.rounds,
             settings: { length: settings.length, style: settings.style },
             userKey: settings.userKey,
+            web_search: settings.webSearch,
             custom_officials: customSelected.map((o) => ({
               id: o.id,
               name: o.name,

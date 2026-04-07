@@ -58,6 +58,7 @@ class StartDebateRequest(BaseModel):
     settings: DebateSettings = Field(default_factory=DebateSettings)
     userKey: UserKeyModel | None = None
     custom_officials: list[CustomOfficialData] = Field(default_factory=list)  # 新增，默认空列表
+    web_search: bool = False  # 是否启用联网搜索（仅 GLM4 生效）
 
 
 class CreateOfficialRequest(BaseModel):
@@ -119,11 +120,12 @@ async def start_debate(req: StartDebateRequest):
         settings=req.settings.model_dump(),
         user_key=user_key,
         custom_officials=req.custom_officials,  # 新增：传入自定义官员列表
+        web_search=req.web_search,
     )
     _debate_registry[debate_id] = config
 
-    logger.info("朝会发起: debate_id=%s topic=%s officials=%s",
-                debate_id, config.topic, config.official_ids)
+    logger.warning("朝会发起: debate_id=%s topic=%s officials=%s web_search=%s",
+                   debate_id, config.topic, config.official_ids, req.web_search)
     return {"debate_id": debate_id, "status": "started"}
 
 

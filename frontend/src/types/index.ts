@@ -48,6 +48,7 @@ export interface Settings {
   style: 'modern' | 'classical';
   typingSpeed: 'fast' | 'slow';
   selectedOfficials: OfficialId[];
+  webSearch: boolean;
   userKey?: {
     provider: string;
     apiKey: string;

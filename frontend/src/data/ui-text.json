@@ -57,6 +57,10 @@
       "fast": "快",
       "slow": "慢"
     },
+    "webSearch": {
+      "label": "联网搜索",
+      "description": "允许大臣查阅时事（仅 GLM4 生效）"
+    },
     "aiConfig": {
       "label": "AI 设置",
       "collapse": "收起 ▲",

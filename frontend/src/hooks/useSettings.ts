@@ -9,6 +9,7 @@ const DEFAULT_SETTINGS: Settings = {
   style: 'modern',
   typingSpeed: 'fast',
   selectedOfficials: ['hubu', 'bingbu', 'libu', 'gongbu', 'yushi', 'hanlin', 'chancellor'],
+  webSearch: false,
 };
 
 function loadSettings(): Settings {

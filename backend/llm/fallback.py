@@ -7,6 +7,8 @@ llm/fallback.py — Fallback 调用链
   3. 服务端 GLM4-Flash（GLM4_API_KEY 环境变量，几乎无限免费，兜底）
 
 捕获 RateLimitError / InsufficientQuotaError 自动降级。
+
+web_search：仅智谱 GLM4 原生支持联网搜索，其他 provider 静默忽略。
 """
 from __future__ import annotations
 
@@ -20,6 +22,9 @@ from openai import AsyncOpenAI, RateLimitError, APIStatusError
 from llm.client import make_client, PROVIDER_CONFIGS
 
 logger = logging.getLogger(__name__)
+
+# 支持联网搜索的 provider 列表
+_WEB_SEARCH_PROVIDERS = {"glm4"}
 
 
 class UserKey:
@@ -68,6 +73,7 @@ async def chat_with_fallback(
     stream: bool = True,
     temperature: float = 0.85,
     max_tokens: int = 800,
+    web_search: bool = False,
 ) -> AsyncIterator[str]:
     """
     带 Fallback 的聊天调用，以 async generator 形式 yield 文本 token。
@@ -78,21 +84,26 @@ async def chat_with_fallback(
         stream: 是否流式输出（默认 True）
         temperature: 采样温度
         max_tokens: 最大输出 token 数
+        web_search: 是否启用联网搜索（仅 GLM4 支持，其他 provider 静默忽略）
 
     对于偶发的 JSON 解析错误（DeepSeek SSE 偶尔返回格式异常），
     同一 provider 会重试一次；重试仍失败则降级到下一个 provider。
     """
     import json as _json
 
-    candidates = _build_candidates(user_key)
+    candidates = _build_candidates(user_key, web_search=web_search)
 
     last_exc: Exception | None = None
     for label, client, model in candidates:
+        # 判断当前 provider 是否支持 web_search
+        provider_web_search = web_search and (label in _WEB_SEARCH_PROVIDERS)
         for attempt in range(1, _MAX_STREAM_RETRIES + 1):
             try:
-                logger.info("LLM 调用: %s / %s (attempt %d)", label, model, attempt)
+                logger.warning("LLM 调用: %s / %s (attempt %d, web_search=%s)",
+                               label, model, attempt, provider_web_search)
                 async for token in _stream_call(
-                    client, model, messages, temperature, max_tokens
+                    client, model, messages, temperature, max_tokens,
+                    web_search=provider_web_search,
                 ):
                     yield token
                 return  # 成功，退出
@@ -124,8 +135,13 @@ async def chat_with_fallback(
 
 def _build_candidates(
     user_key: UserKey | None,
+    *,
+    web_search: bool = False,
 ) -> list[tuple[str, AsyncOpenAI, str]]:
-    """构建按优先级排列的 (label, client, model) 列表"""
+    """构建按优先级排列的 (label, client, model) 列表
+
+    web_search=True 时提升 GLM4 优先级（仅 GLM4 支持联网搜索）。
+    """
     candidates: list[tuple[str, AsyncOpenAI, str]] = []
 
     # 1. 用户自带 Key
@@ -136,25 +152,42 @@ def _build_candidates(
         except Exception as e:
             logger.warning("用户 Key 配置无效，跳过: %s", e)
 
-    # 2. 服务端 DeepSeek
     deepseek_key = os.getenv("DEEPSEEK_API_KEY", "")
-    if deepseek_key:
-        cfg = PROVIDER_CONFIGS["deepseek"]
-        candidates.append((
-            "deepseek",
-            make_client(deepseek_key, cfg["base_url"]),
-            cfg["default_model"],
-        ))
-
-    # 3. 服务端 GLM4-Flash（兜底）
     glm4_key = os.getenv("GLM4_API_KEY", "")
-    if glm4_key:
-        cfg = PROVIDER_CONFIGS["glm4"]
-        candidates.append((
-            "glm4",
-            make_client(glm4_key, cfg["base_url"]),
-            cfg["default_model"],
-        ))
+
+    # web_search 开启时 GLM4 优先（支持联网搜索），否则 DeepSeek 优先（模型更强）
+    if web_search:
+        # GLM4 → DeepSeek
+        if glm4_key:
+            cfg = PROVIDER_CONFIGS["glm4"]
+            candidates.append((
+                "glm4",
+                make_client(glm4_key, cfg["base_url"]),
+                cfg["default_model"],
+            ))
+        if deepseek_key:
+            cfg = PROVIDER_CONFIGS["deepseek"]
+            candidates.append((
+                "deepseek",
+                make_client(deepseek_key, cfg["base_url"]),
+                cfg["default_model"],
+            ))
+    else:
+        # DeepSeek → GLM4（默认）
+        if deepseek_key:
+            cfg = PROVIDER_CONFIGS["deepseek"]
+            candidates.append((
+                "deepseek",
+                make_client(deepseek_key, cfg["base_url"]),
+                cfg["default_model"],
+            ))
+        if glm4_key:
+            cfg = PROVIDER_CONFIGS["glm4"]
+            candidates.append((
+                "glm4",
+                make_client(glm4_key, cfg["base_url"]),
+                cfg["default_model"],
+            ))
 
     if not candidates:
         raise RuntimeError(
@@ -167,6 +200,15 @@ def _build_candidates(
 
 _MAX_STREAM_RETRIES = 2  # 最多重试次数（偶发 JSON 解析错误）
 
+# GLM4 联网搜索 tools 参数
+_GLM4_WEB_SEARCH_TOOL = {
+    "type": "web_search",
+    "web_search": {
+        "enable": True,
+        "search_result": True,
+    },
+}
+
 
 async def _stream_call(
     client: AsyncOpenAI,
@@ -174,6 +216,7 @@ async def _stream_call(
     messages: list[dict],
     temperature: float,
     max_tokens: int,
+    web_search: bool = False,
 ) -> AsyncIterator[str]:
     """
     执行流式调用，yield 文本 token。
@@ -182,13 +225,18 @@ async def _stream_call(
     因此 JSONDecodeError 重试逻辑在 chat_with_fallback 层处理，
     此处只做单次流式调用。
     """
-    stream = await client.chat.completions.create(
-        model=model,
-        messages=messages,
-        stream=True,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
+    kwargs: dict = {
+        "model": model,
+        "messages": messages,
+        "stream": True,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    # 仅在 web_search=True 时附加 tools 参数
+    if web_search:
+        kwargs["tools"] = [_GLM4_WEB_SEARCH_TOOL]
+
+    stream = await client.chat.completions.create(**kwargs)
     async for chunk in stream:
         delta = chunk.choices[0].delta if chunk.choices else None
         if delta and delta.content:

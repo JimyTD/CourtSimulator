@@ -50,6 +50,7 @@ def build_messages(
     context: dict,
     round_num: int,
     same_round_speeches: list[dict] | None = None,
+    web_search: bool = False,
 ) -> list[dict]:
     """
     构建 OpenAI 格式的 messages 列表。
@@ -78,7 +79,7 @@ def build_messages(
 
     same_round_speeches: 同轮中排在本官员之前已完成发言的列表
     """
-    system_content = _build_system(config, context, round_num)
+    system_content = _build_system(config, context, round_num, web_search=web_search)
     user_content = _build_user(config, context, round_num, same_round_speeches)
 
     return [
@@ -91,7 +92,7 @@ def build_messages(
 # 内部构建函数
 # ---------------------------------------------------------------------------
 
-def _build_system(config: OfficialConfig, context: dict, round_num: int) -> str:
+def _build_system(config: OfficialConfig, context: dict, round_num: int, *, web_search: bool = False) -> str:
     parts: list[str] = []
 
     # 1. 角色设定
@@ -99,6 +100,15 @@ def _build_system(config: OfficialConfig, context: dict, round_num: int) -> str:
         f"你是一个性格像{config.title}的人。{config.personality}"
     )
     parts.append(base_prompt)
+
+    # 1.5 联网搜索引导（web_search 开启时追加）
+    if web_search:
+        parts.append(
+            "【联网查阅】你拥有查阅最新时事资讯的能力。"
+            "如果议题涉及时事热点、近期事件、政策法规、社会现象等，"
+            "你必须先查阅最新资料再发言，引用具体的新闻事件、数据或政策内容来支撑你的观点。"
+            "不要凭记忆编造，用真实的信息来增强说服力。"
+        )
 
     # 2. 场景说明（关键！让 LLM 理解官职 = 性格标签）
     parts.append(
